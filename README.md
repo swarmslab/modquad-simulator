@@ -51,8 +51,12 @@ The main loop of the simulator performs the following five steps:
 1. Publish the current odometry, using the function _publish_structure_odometry()_ in the same file.
 2. Read the control input variables (_thrust_newtons, roll, pitch, yaw_) either from the callback function or the _demo_trajectory_.
 3. Compute the required force and moments for a single quadrotor (_F_single, M_single_). See _attitude.py_ file.
-4. Compute the required force and moments for a structure (_F_structure, M_structure_) based on the single quadrotor output. See _modquad_torque_control_ file.
+4. Compute the required force and moments for a structure (_F_structure, M_structure_) based on the single quadrotor output. See function_modquad_torque_control_ in the _controller.py_ file.
 5. Simulate by integrating the dynamics. See _ode_integrator.py_ file. 
+
+
+The architecture of the simulator is summarized in the following diagram.     
+![arch](graphics/architecture.png)
 
 
 
