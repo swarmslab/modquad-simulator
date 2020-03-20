@@ -27,10 +27,32 @@ rosrun demo-simulator demo_circle_multiple.py
 ```
 
 
+# Architecture
 
+The main script that simulates a single aerial vehicle is ```modquad_simulator/scripts/modquad_sim.py```. 
+There are some parameters that can be set such as: robot name (_~robot_id_), initial location (_init_x, init_y, init_z_),
+and a predefined trajectory (_~demo_trajectory_). The predefined trajectory generates attitude control inputs to move the
+aerial vehicle in circles.
 
+### Topics
+The simulator subscribes to an attitude input topic: _/cmd_vel_
 
+The simulator publishes the odometry of the aerial vehicle in _/odom_
+It also publishes the frame of the robot using _tf2_ros.TransformBroadcaster()_
 
+### Internal data types
+* The **state_vector** has dimensions 13 x 1, and contains the position (_x,y,z_), linear velocities (_dx,dy,dz_), 
+attitude represented by a quaternion (_qw, qx, qy, qz_), and angular velocities (_p, q, r_). Summarized is _x = [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]_.
+* datatype.QuadState: state of the aerial vehicle, and the goal.
+* datatype.Structure: x and y coordinates of the n modules rigidly attached.
+
+### Main loop
+The main loop of the simulator performs the following five steps:
+1. Publish the current odometry, using the function _publish_structure_odometry()_ in the same file.
+2. Read the control input variables (_thrust_newtons, roll, pitch, yaw_) either from the callback function or the _demo_trajectory_.
+3. Compute the required force and moments for a single quadrotor (_F_single, M_single_). See _attitude.py_ file.
+4. Compute the required force and moments for a structure (_F_structure, M_structure_) based on the single quadrotor output. See _modquad_torque_control_ file.
+5. Simulate by integrating the dynamics. See _ode_integrator.py_ file. 
 
 
 

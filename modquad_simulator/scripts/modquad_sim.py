@@ -6,14 +6,12 @@ import tf2_ros
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import numpy as np
-from numpy import copy
+
 from modsim.controller import position_controller, modquad_torque_control
-from modsim.trajectory import circular_trajectory, simple_waypt_trajectory, \
-    min_snap_trajectory
+from modsim.trajectory import circular_trajectory, min_snap_trajectory
 
 from modsim import params
 from modsim.attitude import attitude_controller
-# from modsim.plot.drawer_vispy import Drawer
 
 from modsim.datatype.structure import Structure
 
@@ -41,7 +39,7 @@ def control_input_listener(twist_msg):
 
     c1, c2, c3 = -0.6709, 0.1932, 13.0652
     F_g = ((thrust_pwm / 60000. - c1) / c2) ** 2 - c3  # Force in grams
-    if F_g<0:
+    if F_g < 0:
         F_g = 0
 
     thrust_newtons = 9.81 * F_g / 1000.  # Force in Newtons
