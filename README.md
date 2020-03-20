@@ -10,10 +10,10 @@
 ### Launching the simulator
 The simulator for five quadrotors is launched by
 ```
-$ roslaunch modquad_simulator simulation.launch
+$ roslaunch modquad_simulator simulation5.launch
 ```
 Each robot simulates the dynamics of a quadrotor by runing the `modquad_sim` node and its pose is displayed in RViz.
-The launch file `simulation.launch` can be easily modified to change the number of quadrotors, their initial location and their color.
+The launch file `simulation5.launch` can be easily modified to change the number of quadrotors, their initial location and their color.
 
 As well as the actual crazyflie robot, the simulator receives two inputs:
 * Attitude command: the topic _cmd_vel_ receives the desired thrust, roll, pitch and yaw inputs. It follows the same format as the `crazyflie_ros `package.
@@ -23,9 +23,11 @@ As well as the actual crazyflie robot, the simulator receives two inputs:
 Once the simulator is running, we can send desired goals to the robots.  The following command runs a demo script that 
 takes off the robots and makes them move in circle.
 ```
-rosrun demo-simulator demo_circle_multiple.py
+rosrun demo_simulator demo_circle_multiple.py
 ```
 
+The output of the demo should look like the following RVIZ screenshot.
+![arch](graphics/demo.png)
 
 # Architecture
 

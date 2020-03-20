@@ -6,9 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /modquad021/Namespaces1
         - /Origin1
-        - /goals11
+        - /Modules1
       Splitter Ratio: 0.5
     Tree Height: 834
   - Class: rviz/Selection
@@ -32,6 +31,8 @@ Panels:
     SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
+Toolbars:
+  toolButtonStyle: 2
 Visualization Manager:
   Class: ""
   Displays:
@@ -52,46 +53,6 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /modquad01/mesh_visualization/robot
-      Name: modquad01
-      Namespaces:
-        /modquad01/mesh_visualization: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /modquad02/mesh_visualization/robot
-      Name: modquad02
-      Namespaces:
-        /modquad02/mesh_visualization: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /modquad03/mesh_visualization/robot
-      Name: modquad03
-      Namespaces:
-        /modquad03/mesh_visualization: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /modquad04/mesh_visualization/robot
-      Name: modquad04
-      Namespaces:
-        /modquad04/mesh_visualization: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /modquad05/mesh_visualization/robot
-      Name: modquad05
-      Namespaces:
-        /modquad05/mesh_visualization: true
-      Queue Size: 100
       Value: true
     - Class: rviz/Axes
       Enabled: true
@@ -178,7 +139,51 @@ Visualization Manager:
           Unreliable: false
           Value: true
       Enabled: true
-      Name: goals1
+      Name: Goals
+    - Class: rviz/Group
+      Displays:
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /modquad01/mesh_visualization/robot
+          Name: modquad01
+          Namespaces:
+            /modquad01/mesh_visualization: true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /modquad05/mesh_visualization/robot
+          Name: modquad05
+          Namespaces:
+            /modquad05/mesh_visualization: true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /modquad02/mesh_visualization/robot
+          Name: modquad02
+          Namespaces:
+            /modquad02/mesh_visualization: true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /modquad03/mesh_visualization/robot
+          Name: modquad03
+          Namespaces:
+            /modquad03/mesh_visualization: true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /modquad04/mesh_visualization/robot
+          Name: modquad04
+          Namespaces:
+            /modquad04/mesh_visualization: true
+          Queue Size: 100
+          Value: true
+      Enabled: true
+      Name: Modules
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -194,7 +199,10 @@ Visualization Manager:
     - Class: rviz/FocusCamera
     - Class: rviz/Measure
     - Class: rviz/SetInitialPose
+      Theta std deviation: 0.2617993950843811
       Topic: /initialpose
+      X std deviation: 0.5
+      Y std deviation: 0.5
     - Class: rviz/SetGoal
       Topic: /move_base_simple/goal
     - Class: rviz/PublishPoint
@@ -204,25 +212,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.172996997833252
+      Distance: 3.6162660121917725
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.4153444468975067
-        Y: -0.1520715206861496
-        Z: 0.4364039897918701
+        X: 0.06383237987756729
+        Y: 0.7739397883415222
+        Z: 0.33331140875816345
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.32979756593704224
+      Pitch: 0.3897973895072937
       Target Frame: world
       Value: Orbit (rviz)
-      Yaw: 5.5629353523254395
+      Yaw: 4.672915458679199
     Saved: ~
 Window Geometry:
   Displays:
@@ -240,5 +248,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1722
-  X: 608
-  Y: 126
+  X: 897
+  Y: 223
