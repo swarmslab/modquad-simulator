@@ -55,7 +55,8 @@ The main loop of the simulator performs the following five steps:
 5. Simulate by integrating the dynamics. See _ode_integrator.py_ file. 
 
 
-The architecture of the simulator is summarized in the following diagram.     
+The architecture of the simulator is summarized in the following diagram.
+
 ![arch](graphics/architecture.png)
 
 
