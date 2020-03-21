@@ -61,7 +61,9 @@ The architecture of the simulator is summarized in the following diagram.
 
 ![arch](graphics/architecture.png)
 
+For the demo, we use the position controller of the Crazyflie
 
+![arch](graphics/demo_architecture.png)
 
 
 ### Credits
