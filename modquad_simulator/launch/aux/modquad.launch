@@ -17,12 +17,12 @@
     <group ns="$(arg model)">
 
         <!-- Simulator -->
-       <node pkg="modquad_simulator" type="modquad_sim.py" name="modquad_sim" output="screen">
+<!--        <node pkg="modquad_simulator" type="modquad_sim.py" name="modquad_sim" output="screen">
            <param name="~robot_id" value="$(arg model)"/>
            <param name="~demo_trajectory" value="$(arg demo_trajectory)"/>
            <param name="~init_x" value="$(arg init_x)" type="double"/>
            <param name="~init_y" value="$(arg init_y)" type="double"/>
-       </node>
+       </node> -->
 
         <!--position controller-->
         <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">

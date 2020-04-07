@@ -42,6 +42,8 @@ def circular_motion():
 
     # Goal publishers
     publishers = [rospy.Publisher('/%s0%d/goal' % (prefix, i + 1), PoseStamped, queue_size=1) for i in range(n)]
+
+
     # Takeoff service
     rospy.loginfo("Taking off, wait a couple of seconds.")
     takeoff_services = [rospy.ServiceProxy('/%s0%d/takeoff' % (prefix, i + 1), Empty) for i in range(n)]

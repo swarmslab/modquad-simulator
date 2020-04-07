@@ -14,7 +14,7 @@ from math import pi
 # %   height = 0.012m
 # %
 
-m = 0.039  # weight (in kg) with cage (each is about 0.039kg)
+m = 4.34  # weight (in kg) with cage (each is about 0.039kg)
 g = 9.81  # gravitational constant
 # inertia tensor in m^2 kg
 # I = [[1.43e-5, 0, 0],
@@ -42,3 +42,24 @@ maxangle = 40 * pi / 180  # you can specify the maximum commanded angle here
 # FIXME the maximum force should be 4*60g
 maxF = 2.5 * m * g  # left these untouched from the nano plus
 minF = 0.0 * m * g  # left these untouched from the nano plus
+
+d = 0.315
+L=d
+J = np.diag([0.0820, 0.845, 0.1377])
+I = J
+invI = np.linalg.inv(I)
+
+#g = 9.81
+#mass = 4.34
+
+e1 = np.array([[1], [0], [0]])
+e2 = np.array([[0], [1], [0]])
+e3 = np.array([[0], [0], [1]])
+
+ctf = 8.004E-4
+
+kx = 10 * np.eye(3)
+kv = 1 * np.eye(3)
+kR = 1
+komega = 1
+w_desired = np.array([[0], [0], [0]])

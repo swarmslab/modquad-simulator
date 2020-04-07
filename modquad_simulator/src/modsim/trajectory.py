@@ -20,6 +20,35 @@ class traj_data:
         self.cz = cz
 
 
+def trajectory_GeometricSO3(tt):
+#    x_d = np.array([0.4 * tt, 0.4 * np.sin(np.pi * tt), 0.6 * np.cos(np.pi * tt)])
+#    vel_d = np.array([0.4, 0.4 * np.pi * np.cos(np.pi * tt), -0.6 * np.pi * np.sin(np.pi * tt)])
+#    accel_d = np.array([0, -0.4 * np.pi * np.pi * np.sin(np.pi * tt), -0.6 * np.pi * np.pi * np.cos(np.pi * tt)])
+
+
+
+    x_d = np.array([0.04 * tt, 0.004 * np.sin(np.pi * tt), 0.006 * np.cos(np.pi * tt)])
+    vel_d = np.array([0.04, 0.004 * np.pi * np.cos(np.pi * tt), -0.006 * np.pi * np.sin(np.pi * tt)])
+    accel_d = np.array([0, -0.004 * np.pi * np.pi * np.sin(np.pi * tt), -0.006 * np.pi * np.pi * np.cos(np.pi * tt)])
+
+    x_d = np.array([0., 0., 1.])
+    vel_d = np.array([0., 0., 0.])
+    accel_d = np.array([0., 0., 0.])
+
+    b1d = np.array([np.cos(np.pi * tt), np.sin(np.pi * tt), 0])
+
+    b1d = np.array([1., 0., 0.])
+
+    if x_d.size == 3:
+        x_d.shape = (3, 1)
+        vel_d.shape = (3, 1)
+        accel_d.shape = (3, 1)
+        b1d.shape = (3, 1)
+
+ #   vec_d = np.concatenate()
+
+    return x_d, vel_d, accel_d, b1d
+
 def circular_trajectory(t, t_max=30):
     """
     Circular trajectory.

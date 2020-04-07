@@ -26,10 +26,10 @@ def publish_odom(x, pub):
     odom.pose.pose.orientation.z = x[8]
     odom.pose.pose.orientation.w = x[9]
 
-    odom.pose.pose.orientation.x = x[7]
-    odom.pose.pose.orientation.y = x[8]
-    odom.pose.pose.orientation.z = x[9]
-    odom.pose.pose.orientation.w = x[6]
+#    odom.pose.pose.orientation.x = x[7]
+#    odom.pose.pose.orientation.y = x[8]
+#    odom.pose.pose.orientation.z = x[9]
+#    odom.pose.pose.orientation.w = x[6]
 
 
     # Angular velocities

@@ -13,6 +13,8 @@ def init_state(pos, yaw):
     # Euler: phi, theta, psi
     qw, qx, qy, qz = trans.euler2quat(0, 0, yaw)
 
+    #Ra = np.array(trans.quat2mat([qw, qx, qy, qz]))
+
     s[:3] = pos
     s[3:6] = 0.  # xdot, ydot, zdot
     s[6:10] = qx, qy, qz, qw
@@ -32,9 +34,10 @@ def state_to_quadrotor(x):
     # current state
     pos = x[:3]
     vel = x[3:6]
-    qx, qy, qz, qw = x[6:10]
+    qt = x[6:10]
     # I dont know why it has to be negative
-    euler = -np.array(trans.quat2euler([qw, qx, qy, qz]))
+    #euler = -np.array(trans.quat2euler([qw, qx, qy, qz]))
+    #Ra = np.array(trans.quat2mat([qw, qx, qy, qz]))
     omega = x[10:]
 
-    return QuadState(pos, vel, euler, omega)
+    return pos, vel, qt, omega
