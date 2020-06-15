@@ -73,7 +73,7 @@ def publish_structure_odometry(structure, odom_publishers, tf_broadcaster):
     # show the other robots
     [publish_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
         main_id, odom_publishers, tf_broadcaster)
-        for robot_id, structure_x, structure_y in zip(ids, xx, yy)[1:]]
+        for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
 
 def simulate(structure, trajectory_function, 
         t_step=0.01, speed=1, figind=1, filesuffix=""):
@@ -135,7 +135,7 @@ def simulate(structure, trajectory_function,
     while t < overtime*tmax + 1.0 / freq:
         rate.sleep()
         t += 1. / freq
-        #print("{} / {}".format(t, overtime*tmax))
+        print("{} / {}".format(t, overtime*tmax))
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -258,19 +258,19 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     random.seed(0)
     num_faults = 0
     while num_faults < max_fault:
-	if rand_fault:
+        if rand_fault:
             newfault = (random.randint(0,mset.num_mod-1), random.randint(0,3))
             if newfault not in faulty_rots:
                 faulty_rots.append(newfault)
                 num_faults += 1	
         else:
             if num_faults < 4:
-	        newfault = (0, num_faults)
-	        faulty_rots.append(newfault)
+                newfault = (0, num_faults)
+                faulty_rots.append(newfault)
             else:
-	        newfault = (1, num_faults % 4)
-	        faulty_rots.append(newfault)
-	    num_faults += 1
+                newfault = (1, num_faults % 4)
+                faulty_rots.append(newfault)
+        num_faults += 1
 
     print(faulty_rots)
     for f in faulty_rots:
@@ -301,11 +301,13 @@ if __name__ == '__main__':
     #sys.exit(0)
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
-                       structure_gen.plus(3, 3), 
+                       #structure_gen.plus(2, 1), 
+                       structure_gen.rect(2, 2), 
                        #structure_gen.airplane(5,5,3),
-                       waypt_gen.helix(radius=2.5, rise=3, num_circ=2),
-                       speed=1.25, test_id="3x3plus", 
-                       doreform=True, max_fault=6, rand_fault=False)
+                       #waypt_gen.helix(radius=2.5, rise=3, num_circ=2),
+                       waypt_gen.line([0,0,0],[1,1,1]),
+                       speed=1.25, test_id="2x1line", 
+                       doreform=True, max_fault=0, rand_fault=False)
     print("Force used: {}".format(results[0]))
     print("RMSE Position Error: {}".format(np.mean(results[1])))
     #print("Faults: {}".format(results[3]))

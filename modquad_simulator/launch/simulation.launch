@@ -152,7 +152,7 @@
     <param name="num_robots" value="5" type="int"/>
     <!--Robot Visualization-->
     <!--<node pkg="modquad_simulator" type="visualizer.py" name="visual"/>-->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/four-robots.rviz" required="true"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/thirteen-robots.rviz" required="true"/>
 
 
     <!--<node pkg="dock_manager" type="docking_detector.py" name="docking_det"/>-->

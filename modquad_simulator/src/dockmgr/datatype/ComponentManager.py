@@ -175,5 +175,5 @@ class ComponentManager(object):
         try:
             call_manual_dock = rospy.ServiceProxy(service_name, ManualDock)
             call_manual_dock(msg)
-        except rospy.ServiceException, e:
-            rospy.logerr("Service manual dock failed: %s" % e)
+        except rospy.ServiceException as e:
+            rospy.logerr("Service manual dock failed: {}".format(e))

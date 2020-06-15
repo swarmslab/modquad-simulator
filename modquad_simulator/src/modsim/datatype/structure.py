@@ -109,6 +109,6 @@ class Structure:
 
     def update_control_params(self, thrust_newtons, roll, pitch, yaw):
         self.thrust_newtons = thrust_newtons
-	self.roll = roll
-	self.pitch = pitch
-	self.yaw = yaw
+        self.roll = roll
+        self.pitch = pitch
+        self.yaw = yaw

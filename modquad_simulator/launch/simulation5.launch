@@ -1,5 +1,5 @@
 <launch>
-    <param name="num_robots" value="4" type="int"/>
+    <param name="num_robots" value="5" type="int"/>
 
     <arg name="launch_path" value="$(find modquad_simulator)/launch/aux/"/>
 
@@ -66,7 +66,7 @@
 
     <!--Robot Visualization-->
     <!--<node pkg="modquad_simulator" type="visualizer.py" name="visual"/>-->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/four-robots.rviz" required="true"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/five-robots.rviz" required="true"/>
     <param name="num_robots" value="5" type="int"/>
 
     <!--<node pkg="dock_manager" type="docking_detector.py" name="docking_det"/>-->
@@ -74,7 +74,7 @@
     <!--<node pkg="dock_manager" type="odom_multiplexer.py" name="odom_mux"/>-->
 
 
-    <!--<node pkg="tf2_ros" type="static_transform_publisher" name="link1_broadcaster"-->
-          <!--args="1 0 0 0 0 0 1 world link1"/>-->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="link1_broadcaster"
+          args="1 0 0 0 0 0 1 world link1"/>
 
 </launch>

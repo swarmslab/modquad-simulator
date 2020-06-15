@@ -116,7 +116,7 @@ def manual_dock_service(manual_dock_srv):
         # manual_docking[i] = val
 
     manual_docking = tmp_manual_docking
-    print manual_docking
+    print(manual_docking)
     return ManualDockResponse()
 
 def detect_dockings():
