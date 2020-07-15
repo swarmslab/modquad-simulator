@@ -150,7 +150,7 @@ def detect_dockings():
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     pos_manager = WorldPosManager(n)
-    docking = [0 for _ in range(n * (n - 1) / 2)]
+    docking = [0 for _ in range(int(n * (n - 1) / 2))]
 
     # Gets all robot locations
     pos_manager.subscribe()

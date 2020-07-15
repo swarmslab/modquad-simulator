@@ -100,7 +100,7 @@ def position_controller(structure, desired_state):
     return [thrust, phi_des, theta_des, psi_des]
 
 
-def modquad_torque_control(F, M, structure, motor_sat=False):
+def modquad_torque_control(F, M, structure, motor_sat=False, en_fail_rotor=False):
     """
     This function is similar to crazyflie_motion, but it is made for modular robots. So it specifies the dynamics
     of the modular structure. It receives a desired force and moment of a single robot.
@@ -161,23 +161,28 @@ def modquad_torque_control(F, M, structure, motor_sat=False):
     rotor_forces = np.dot(A, [F, M[0], M[1]])  # Not using moment about Z-axis for limits
 
     # Failing motors -- IDs are 1-indexed, but rotor pos are 0-indexed
-    for mf in structure.motor_failure:
-        try:
-            ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
-            rotor_forces[4 * (ind-1) + mf[1]] *= 0.0
-        except:
-            print("ERROR IN ZEROING FAILED MOTOR THRUST")
-            print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
-            print("Fail rotor computed: {}".format(4*(mf[0]-1) + mf[1]))
-            print(structure.ids)
-            #print(structure.xx)
-            #print(structure.yy)
-            print(structure.motor_failure)
-            #print(np.array(A))
-            #print(np.array([F,M[0],M[1]]))
-            print(rotor_forces)
-            import sys
-            sys.exit(-1)
+    if en_fail_rotor:
+        for mf in structure.motor_failure:
+            try:
+                ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
+                rotor_forces[4 * (ind) + mf[1]] = 0.0
+                #print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
+                #print("Fail rotor computed: {}".format(4*(mf[0]-1) + mf[1]))
+                #print(rotor_forces)
+                #print("====")
+            except:
+                print("ERROR IN ZEROING FAILED MOTOR THRUST")
+                print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
+                print("Fail rotor computed: {}".format(4*(mf[0]-1) + mf[1]))
+                print(structure.ids)
+                #print(structure.xx)
+                #print(structure.yy)
+                print(structure.motor_failure)
+                #print(np.array(A))
+                #print(np.array([F,M[0],M[1]]))
+                print(rotor_forces)
+                import sys
+                sys.exit(-1)
 
 
     # Motor saturation

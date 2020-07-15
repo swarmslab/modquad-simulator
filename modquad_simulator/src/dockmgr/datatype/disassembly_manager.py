@@ -115,6 +115,10 @@ class DisassemblyManager:
             split = rospy.ServiceProxy("SplitStructure", SplitStructure)
             split_dim, breakline, split_ind = dis_loc[0][0], dis_loc[0][1], dis_loc[0][2], 
             inp = split_srv_input_format(struc, int(split_dim=='y'), breakline, split_ind)
+            #inp[0] = [int(inp[0][idx]) for idx in range(inp[0])]
+            #inp[5] = [int(inp[5][idx]) for idx in range(inp[5])]
+            for i in range(7):
+                print("inp[{}] = {}".format(i, inp[i]))
             ret = split(inp[0], inp[1], inp[2], inp[3], inp[4], inp[5], inp[6], inp[7])
 
             # Generate the new structures post-split (i.e. generate the actual objects)

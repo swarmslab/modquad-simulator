@@ -1,5 +1,6 @@
 import rospy
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
 from transforms3d import euler as trans
 
 def publish_pos(x, pub):
@@ -180,3 +181,39 @@ def publish_transform_stamped_relative(model_name, parent_name, struct_x, struct
 
     # Publish a transform stamped message
     pub.sendTransform(ts)
+
+def publish_acc(state_vec, lin_acc, pub):
+    """
+	Publish linear acceleration for a main module
+    :param x: 
+    :param pub: 
+    """
+    # Roll pitch yaw trust
+    imu = Imu()
+
+    imu.header.stamp = rospy.Time.now()
+    #imu.child_frame_id = 'modquad'
+    imu.header.frame_id = 'world'
+
+	# Not using seq nums
+    #imu_data.header.seq = seq
+
+	# Not using orientation from this msg
+    imu.orientation.x = state_vec[0]
+    imu.orientation.y = state_vec[1]
+    imu.orientation.z = state_vec[2]
+    imu.orientation.w = state_vec[9]
+
+	# Linear acceleration
+    imu.linear_acceleration.x = lin_acc[0]
+    imu.linear_acceleration.y = lin_acc[1]
+    imu.linear_acceleration.z = lin_acc[2]
+    imu.linear_acceleration_covariance[0] = -1
+
+	# Not using ang vel
+    imu.angular_velocity.x = 0
+    imu.angular_velocity.y = 0
+    imu.angular_velocity.z = 0
+    imu.angular_velocity_covariance[0] = -1
+
+    pub.publish(imu)

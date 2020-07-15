@@ -34,15 +34,15 @@ def convert_modset_to_struc(mset):
                 fails.append((mid+1, rid))
         i += 1
     s =  Structure(ids, xpos, ypos, fails)
-    #print(ids)
-    #print(xpos)
-    #print(ypos)
-    #print('/////\\\\\\')
+    print(ids)
+    print(xpos)
+    print(ypos)
+    print('/////\\\\\\')
     s.yy = -s.yy # Otherwise the alignment gets off due to matrix vs cartesian plane axis
-    #print(s.ids)
-    #print(s.xx)
-    #print(s.yy)
-    return s#Structure(ids, xpos, ypos, fails)
+    print(s.ids)
+    print(s.xx)
+    print(s.yy)
+    return s #Structure(ids, xpos, ypos, fails)
 
 def convert_struc_to_mat(idset, xset, yset):
     """
