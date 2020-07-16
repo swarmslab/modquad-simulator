@@ -106,3 +106,41 @@ def get_faulty_quadrant_rotors(residual, structure):
     # Tuples (mod_id, rotor_id) where fault could potentially be based on
     # quadrant the fault is IDed to be in
     return [(int(r/4)+1, r - 4*int(r/4)) for r in inds]
+
+def update_ramp_rotors(t, next_t, quadrant, qidx, ramp_rotor_set):
+    fdd_interval = rospy.get_param("fault_det_time_interval")
+    next_t = t + fdd_interval
+    ramp_up_set = []
+    if len(ramp_rotor_set[0]) > 0: # Edge case when we first start diagnosis
+        ramp_up_set = [quadrant[qidx]]
+        qidx += 1
+
+        # TODO REMOVE THIS TEMP FIX
+        if qidx >= len(quadrant):
+            qidx = 0
+    ramp_down_set = [quadrant[qidx]]
+    ramp_rotor_set = [ramp_down_set, ramp_up_set]
+
+
+    return next_t, ramp_rotor_set, qidx
+
+def update_ramp_factors(t, next_t, ramp_factor):
+    fdd_interval = rospy.get_param("fault_det_time_interval")
+    # Time left
+    tdif = next_t - t
+    if tdif < 0:
+        raise Exception("Logic error in fault detect: tdif = next_t - t < 0")
+
+    # No more changes left to do case
+    if ramp_factor[0] < 0.0 or ramp_factor[1] > 1.0:
+        return [0.0, 1.0]
+
+    # Reach max extent of changes with 20% of fdd_interval left to go
+    # 20% is arbitrary, can choose something else too
+    ramp_down_factor = 0.5 * tdif / fdd_interval
+    if ramp_down_factor < 0.1:
+        ramp_down_factor = 0.0
+
+    ramp_up_factor = 1.0 - ramp_down_factor
+
+    return [ramp_down_factor, ramp_up_factor]
