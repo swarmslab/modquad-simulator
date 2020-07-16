@@ -76,12 +76,15 @@ def get_faulty_quadrant_rotors(residual, structure):
     residual = residual[-3:-1]
     residual = residual > 0 # Convert to sign-based
     quadrant = 1
-    if residual[0] < 0 and residual[1] > 0:
+    if not residual[0] and residual[1]:
         quadrant = 2
-    elif residual[0] < 0 and residual[1] < 0:
+    elif not residual[0] and not residual[1]:
         quadrant = 3
-    elif residual[0] > 0 and residual[1] < 0:
+    elif residual[0] and not residual[1]:
         quadrant = 4
+
+    #print("Residual = {}".format(residual))
+    #print("Quadrant of Fault seems to be: {}", quadrant)
 
     # Determine which rotor positions are in which quadrant by using signs
     sign_rx = np.array([1 if rx_i > 0 else -1 for rx_i in rx])
@@ -117,6 +120,10 @@ def update_ramp_rotors(t, next_t, quadrant, qidx, ramp_rotor_set):
 
         # TODO REMOVE THIS TEMP FIX
         if qidx >= len(quadrant):
+            print(quadrant)
+            import sys
+            print("---------------------------------------------")
+            sys.exit(1)
             qidx = 0
     ramp_down_set = [quadrant[qidx]]
     ramp_rotor_set = [ramp_down_set, ramp_up_set]
