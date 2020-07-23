@@ -31,9 +31,13 @@ from modsim.simulation.ode_integrator import simulation_step
 from modsim.util.fault_detection import fault_exists,               \
                                         get_faulty_quadrant_rotors, \
                                         update_ramp_rotors,         \
-                                        update_ramp_factors
+                                        update_ramp_factors,        \
+                                        form_groups
 
-from modquad_sched_interface.interface import convert_modset_to_struc, convert_struc_to_mat
+from modquad_sched_interface.interface import convert_modset_to_struc, \
+                                              convert_struc_to_mat   , \
+                                              rotpos_to_mat
+
 import modquad_sched_interface.waypt_gen as waypt_gen
 import modquad_sched_interface.structure_gen as structure_gen
 
@@ -185,9 +189,8 @@ def simulate(structure, trajectory_function, sched_mset,
     
     # List of tuples of (mod_id, rot_id) rotors where fault is
     quadrant = []
-
-    # Mask tells us which rotors are still potentially faulty
-    quadrant_mask = []
+    rotmat = []
+    groups = []
 
     # Rotor ramping variables for fault detection
     ramp_rotor_set = [[], []]
@@ -196,11 +199,13 @@ def simulate(structure, trajectory_function, sched_mset,
     # Ramp up times
     rospy.set_param("fault_det_time_interval", 5.0)
 
+    residual = []
+
     #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
     while t < overtime*tmax + 1.0 / freq:
         t += 1. / freq
         if ( t % 10 < 0.01 ):
-            print("{} / {}".format(t, overtime*tmax))
+            print("{:.01f} / {:.01f} - Residual = {}".format(t, overtime*tmax, residual))
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -228,6 +233,7 @@ def simulate(structure, trajectory_function, sched_mset,
                         ramp_rotor_set, ramp_factor)
 
         en_fail_rotor_act = False
+
         # Compute in case of no failures for state estimation
         F_structure_est, M_structure_est, rotor_forces_est = \
                 modquad_torque_control(
@@ -243,40 +249,59 @@ def simulate(structure, trajectory_function, sched_mset,
         rate.sleep()
 
         # Simulate, obtain new state and state derivative
-        structure.state_vector = simulation_step(structure, structure.state_vector, 
-		                                    F_structure, M_structure, 1. / freq)
+        structure.state_vector = simulation_step( structure, 
+                                                  structure.state_vector, 
+		                                          F_structure, 
+                                                  M_structure, 
+                                                  1.0 / freq             )
 
         # Compute residuals for error detection
         residual = structure.state_vector - est
 
         # Process the residual - i.e. check for failed rotors via thresholding
         # of residuals
-        #print("[{:.02f}] Dif: [{}]".format(t, ["{:.02f} ".format(entry) for entry in residual]))
         if fault_exists(residual) and not diagnose_mode:
             diagnose_mode = True
             quadrant = get_faulty_quadrant_rotors(residual, structure)
-            quadrant_mask = np.ones((len(quadrant), 1))
+            rotmat = rotpos_to_mat(structure, quadrant)
+            groups = form_groups(quadrant, rotmat)
+            print("Groups = {}".format(groups))
             next_diag_t = 0
 
         # If we are in the diagnose_mode, then we need to iteratively turn off
         # the rotors in the quadrant and see what state error goes to
         if diagnose_mode:
             if t >= next_diag_t: # Update rotor set
-                #print("\tResidual = {}".format(residual[-3:-1]))
+                # We found the faulty rotor
                 if (abs(residual[-3] < 0.2) and abs(residual[-2]) < 0.2):
-                    print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                    print("State Est = {}".format(est))
+                    print("Residual = {}".format(residual[-3:-1]))
+
+                    # Recurse over set if not already single rotor
+                    if (len(ramp_rotor_set[0]) == 1): # Single rotor
+                        print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        sys.exit(0)
+
+                    print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
+
+                    # Switch to single rotor searching
+                    rospy.set_param("fdd_group_type", "indiv")
+                    groups = form_groups(ramp_rotor_set[0], rotmat)
+                    print(groups)
+                    quadrant_idx = 0 # Reset
                     print("------------------------------------------------")
-                    sys.exit(0)
-                #print("-----")
-                next_diag_t, ramp_rotor_set, quadrant_idx = \
+                    ramp_rotor_set = [[], ramp_rotor_set[0]]
+                else:
+                    next_diag_t, ramp_rotor_set, quadrant_idx = \
                                     update_ramp_rotors(
+                                            structure,
                                             t, next_diag_t,
-                                            quadrant, quadrant_idx,
+                                            groups, quadrant_idx,
+                                            rotmat,
                                             ramp_rotor_set)
-                #print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+                print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
             else: # Update ramping factors
-                ramp_factor = update_ramp_factors(t, next_diag_t,
-                                                     ramp_factor)
+                ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
 
         # Store data
         state_log.append(np.copy(structure.state_vector))
@@ -292,9 +317,10 @@ def simulate(structure, trajectory_function, sched_mset,
             publish_structure_acc(structure, state_log, 1.0/freq)
 
         # Inject faults
-        if ( t >= tmax/20.0 and not faults_injected ):
+        if ( t >= tmax/10.0 and not faults_injected ):
             inject_faults(structure, max_faults, sched_mset)
             faults_injected = True
+            print("Residual = {}".format(residual))
 
 
     # Process the final residual - i.e. check for failed rotors via thresholding
@@ -418,11 +444,12 @@ if __name__ == '__main__':
     print("starting simulation")
     #print(structure_gen.airplane(5,5,3).struc)
     #sys.exit(0)
+    rospy.set_param("fdd_group_type", "horz_line")
     random.seed(1)
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(2, 2), 
+                       structure_gen.rect(3, 3), 
                        #structure_gen.airplane(5,5,3),
                        waypt_gen.helix(radius=2.5, rise=3, num_circ=3),
                        #waypt_gen.line([0,0,0],[1,1,1]),

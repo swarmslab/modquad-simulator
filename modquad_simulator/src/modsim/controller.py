@@ -31,6 +31,12 @@ def position_controller(structure, desired_state):
 
     # Multi mod control params
     if num_mod > 4:
+        # xyp =   10.0 
+        # xyd =   10.0 
+        # xyi =    0.01 
+        # zp  =   15.0
+        # zd  =   15.0 
+        # zi  =    1.5 
         xyp =  15.0 
         xyd =  30.0 
         xyi =   0.00 
@@ -39,18 +45,24 @@ def position_controller(structure, desired_state):
         zi  =   2.5 
     # Control gains for 3-4 mods
     elif num_mod > 3:
-        xyp =  5.0
-        xyd =  5.0
+        #xyp =  1.0
+        #xyd =  1.0
+        #xyi =   0.01
+        #zp  =   1.0
+        #zd  =   1.0
+        #zi  =   0.5
+        xyp =  10.0
+        xyd =  40.0
         xyi =   0.01
         zp  =  10.0
-        zd  =  10.0
+        zd  =  30.0
         zi  =   2.5
-        #xyp =  29.0
-        #xyd =  51.0
-        #xyi =   0.01
-        #zp  =  13.0
-        #zd  =  18.0
-        #zi  =   2.5
+        ##xyp =  29.0
+        ##xyd =  51.0
+        ##xyi =   0.01
+        ##zp  =  13.0
+        ##zd  =  18.0
+        ##zi  =   2.5
     elif num_mod > 2:
         xyp =  39.0
         xyd =  91.0
