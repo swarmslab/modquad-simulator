@@ -148,6 +148,39 @@
         <arg name="color_g" default="1.0"/> 
         <arg name="color_b" default="0.0"/> 
     </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad14"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad15"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad16"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
 
     <param name="num_robots" value="5" type="int"/>
     <!--Robot Visualization-->

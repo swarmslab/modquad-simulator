@@ -32,7 +32,8 @@ from modsim.util.fault_detection import fault_exists,               \
                                         get_faulty_quadrant_rotors, \
                                         update_ramp_rotors,         \
                                         update_ramp_factors,        \
-                                        form_groups
+                                        form_groups,                \
+                                        update_rotmat
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
                                               convert_struc_to_mat   , \
@@ -199,6 +200,8 @@ def simulate(structure, trajectory_function, sched_mset,
     # Ramp up times
     rospy.set_param("fault_det_time_interval", 5.0)
 
+    fdd_interval = rospy.get_param("fault_det_time_interval")
+
     residual = []
 
     #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
@@ -273,7 +276,7 @@ def simulate(structure, trajectory_function, sched_mset,
         if diagnose_mode:
             if t >= next_diag_t: # Update rotor set
                 # We found the faulty rotor
-                if (abs(residual[-3] < 0.2) and abs(residual[-2]) < 0.2):
+                if (abs(residual[-3] < 0.05) and abs(residual[-2]) < 0.05):
                     print("State Est = {}".format(est))
                     print("Residual = {}".format(residual[-3:-1]))
 
@@ -284,22 +287,27 @@ def simulate(structure, trajectory_function, sched_mset,
 
                     print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
 
+                    rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
+
                     # Switch to single rotor searching
-                    rospy.set_param("fdd_group_type", "indiv")
+                    # Keep at log4
+                    #rospy.set_param("fdd_group_type", "indiv") 
                     groups = form_groups(ramp_rotor_set[0], rotmat)
-                    print(groups)
                     quadrant_idx = 0 # Reset
-                    print("------------------------------------------------")
+                    print("New Groups: {}".format(groups))
                     ramp_rotor_set = [[], ramp_rotor_set[0]]
                 else:
-                    next_diag_t, ramp_rotor_set, quadrant_idx = \
+                    ramp_rotor_set, quadrant_idx = \
                                     update_ramp_rotors(
                                             structure,
                                             t, next_diag_t,
                                             groups, quadrant_idx,
                                             rotmat,
                                             ramp_rotor_set)
+                next_diag_t = t + fdd_interval
                 print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+                print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
+                print("------------------------------------------------")
             else: # Update ramping factors
                 ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
 
@@ -444,12 +452,12 @@ if __name__ == '__main__':
     print("starting simulation")
     #print(structure_gen.airplane(5,5,3).struc)
     #sys.exit(0)
-    rospy.set_param("fdd_group_type", "horz_line")
+    rospy.set_param("fdd_group_type", "log4")
     random.seed(1)
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(3, 3), 
+                       structure_gen.rect(4, 3), 
                        #structure_gen.airplane(5,5,3),
                        waypt_gen.helix(radius=2.5, rise=3, num_circ=3),
                        #waypt_gen.line([0,0,0],[1,1,1]),

@@ -103,7 +103,7 @@ def rotpos_to_mat(structure, rot_list):
     struc_mat = convert_struc_to_mat(structure.ids, structure.xx, structure.yy)
     struc_mat = np.array(struc_mat)
 
-    mat = -1 * np.ones((2 * struc_mat.shape[0], 2 * struc_mat.shape[1]))
+    mat = -1 * np.ones((2 * struc_mat.shape[0], 2 * struc_mat.shape[1]), dtype=np.int64)
 
     #mat = np.array( list(zip(mat.ravel(), mat.ravel())), 
     #                dtype=('i4,i4')).reshape(mat.shape)

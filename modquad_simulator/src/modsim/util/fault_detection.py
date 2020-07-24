@@ -111,20 +111,47 @@ def get_faulty_quadrant_rotors(residual, structure):
     # quadrant the fault is IDed to be in
     return [(int(r/4)+1, r - 4*int(r/4)) for r in inds]
 
+def update_rotmat(rot_list, rotmat):
+    """
+    For those rotors not in the rot_list, 
+    make their entries in the rotmat be -1
+    """
+    save_list = []
+    for rot in rot_list:
+        mat_idx = np.where(rotmat == rot[0])
+
+        # Get x,y of module position
+        sx = int(mat_idx[0][0] / 2)
+        sy = int(mat_idx[1][0] / 2)
+        save_list.append([sx, sy, rot[0], rot[1]])
+    rotmat[rotmat > -1] = -1
+
+    for rot in save_list:
+        x = rot[0]
+        y = rot[1]
+        # Label each rotor position with its module ID
+        if rot[3] == 0:
+            rotmat[2*x + 1, 2*y    ] = rot[2]
+        elif rot[3] == 1:
+            rotmat[2*x + 1, 2*y + 1] = rot[2]
+        elif rot[3] == 2:
+            rotmat[2*x    , 2*y + 1] = rot[2]
+        else: # rot[3] == 3
+            rotmat[2*x    , 2*y    ] = rot[2]
+
+    return rotmat
+
 def update_ramp_rotors(structure, t, next_t, groups, qidx, 
                         rotmat, ramp_rotor_set):
     """
     This function selects the sets of rotors we suspect of containing the fault
     It does not actually perform ramping of rotor thrust, only the selection
     """
-    fdd_interval = rospy.get_param("fault_det_time_interval")
-    next_t = t + fdd_interval
-
     # The full set of rotors we want to modify thrusts for
     ramp_rotor_set, qidx = _update_ramp_rotor_groups(structure, groups, 
                                                  qidx, rotmat, ramp_rotor_set)
 
-    return next_t, ramp_rotor_set, qidx
+    return ramp_rotor_set, qidx
 
 def _update_ramp_rotor_groups(structure, groups, qidx, rotmat, ramp_rotor_set):
     """
@@ -251,6 +278,10 @@ def form_groups(rot_list, rotmat):
         groups = _form_diag_rotor_groups(rot_list, rotmat)
     elif gtype == "horz_line":
         groups = _form_hline_rotor_groups(rot_list, rotmat)
+    elif gtype == "vert_line":
+        groups = _form_vline_rotor_groups(rot_list, rotmat)
+    elif gtype == "log4":
+        groups = _form_log4_rotor_groups(rot_list, rotmat)
     else:
         raise Exception("Group type \"{}\" not implemented".format(gtype))
 
@@ -274,7 +305,7 @@ def _form_diag_rotor_groups(rot_list, rotmat):
 
 def _form_hline_rotor_groups(rot_list, rotmat):
     """
-    Given rotor matrix, divide into groups such that groups are diagonals
+    Given rotor matrix, divide into groups such that groups are horizontals
     """
     # Temp dict to store each of the lines
     rotsets = {}
@@ -290,6 +321,71 @@ def _form_hline_rotor_groups(rot_list, rotmat):
         rotsets[x].append((int(rotmat[x, y]), rid))
 
     return [rotsets[x] for x in np.unique(indices[0])]
+
+def _form_vline_rotor_groups(rot_list, rotmat):
+    """
+    Given rotor matrix, divide into groups such that groups are groups of
+    verticals
+    """
+    print(rotmat)
+    # Temp dict to store each of the lines
+    rotsets = {}
+
+    # Find all places where matrix is nonnegative
+    indices = np.where(rotmat > -1)
+
+    for y in np.unique(indices[1]):
+        rotsets[y] = []
+
+    # import pdb
+    # pdb.set_trace()
+
+    for x,y in list(zip(*indices)):
+        rid = __get_rot_id(x, y)
+        rotsets[y].append((int(rotmat[x, y]), rid))
+
+    return [rotsets[y] for y in np.unique(indices[1])]
+
+def _form_log4_rotor_groups(rot_list, rotmat):
+
+    qsize = int(len(rot_list) / 4)
+    if qsize < 1:
+        qsize = 1
+    #import pdb
+    #pdb.set_trace()
+
+    g1 = []
+    g2 = []
+    g3 = []
+    g4 = []
+
+    try:
+        g1 = rot_list[:qsize]
+        g2 = rot_list[qsize:2*qsize]
+        g3 = rot_list[2*qsize:3*qsize]
+        g4 = rot_list[3*qsize:]
+    except:
+        pass
+
+    # Find all places where matrix is nonnegative
+    #indices = np.where(rotmat > -1)
+
+    #submat = rotmat[indices[0][0]:indices[0][-1]+1,
+    #                indices[1][0]:indices[1][-1]+1]
+
+    #center_x = int(submat.shape[0] / 2)
+    #center_y = int(submat.shape[1] / 2)
+
+    #try:
+    #    g1 = submat[0:center_x, 0:center_y]
+    #    g2 = submat[center_x: , 0:center_y]
+    #    g3 = submat[0:center_x, center_y: ]
+    #    g4 = submat[center_x: , center_y: ]
+    #except:
+    #    raise Exception("Screwed up")
+
+
+    return [g1, g2, g3, g4]
 
 def __get_rot_id(x, y):
     """
