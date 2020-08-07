@@ -1,0 +1,36 @@
+<launch>
+    <param name="num_robots" value="4" type="int"/>
+
+    <arg name="launch_path" value="$(find modquad_simulator)/launch/aux/"/>
+
+	<node pkg="modquad_simulator" name="gen_new_rviz.py" type="gen_new_rviz.py" args="$(arg nr)"/>
+
+	<!-- Launch visualization params that are independent of number of robots -->
+
+    <include file="$(arg launch_path)/recursive_modquad.launch">
+		<arg name="nr" value="$(arg nr)"/>
+        <!--<arg name="model" value="modquad$(arg nr)"/>-->
+
+        <arg name="init_x" default="0.0"/>
+        <arg name="init_y" default="0.0"/>
+
+        <arg name="color_r" default="0.0"/>
+        <arg name="color_g" default="1.0"/>
+        <arg name="color_b" default="0.0"/>
+    </include>
+
+    <param name="num_robots" value="25" type="int"/>
+
+    <!--Robot Visualization-->
+    <!--<node pkg="modquad_simulator" type="visualizer.py" name="visual"/>-->
+
+    <!--<node pkg="dock_manager" type="docking_detector.py" name="docking_det"/>-->
+    <!--<node pkg="modquad_simulator" type="docking_sim.py" name="docking_sim"/>-->
+    <!--<node pkg="dock_manager" type="odom_multiplexer.py" name="odom_mux"/>-->
+
+    <node name="rviz_gen" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/generated.rviz" required="true"/>
+
+    <node pkg="tf2_ros" type="static_transform_publisher" name="link1_broadcaster"
+          args="1 0 0 0 0 0 1 world link1"/>
+
+</launch>
