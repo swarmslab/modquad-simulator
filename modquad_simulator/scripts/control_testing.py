@@ -43,7 +43,8 @@ from modquad_sched_interface.interface import convert_modset_to_struc, \
 import modquad_sched_interface.waypt_gen as waypt_gen
 import modquad_sched_interface.structure_gen as structure_gen
 
-from scheduler.gsolver import gsolve, lin_assign
+from modquad_sched_interface.simple_scheduler import lin_assign
+#from scheduler.gsolver import gsolve
 
 fig = plt.figure()
 fig2 = plt.figure()

@@ -44,8 +44,10 @@ from modquad_sched_interface.interface import convert_modset_to_struc, \
 
 import modquad_sched_interface.waypt_gen as waypt_gen
 import modquad_sched_interface.structure_gen as structure_gen
+from modquad_sched_interface.simple_scheduler import lin_assign
 
-from scheduler.gsolver import gsolve
+# ENABLE if you want to use the more complex Gurobi-based module-to-pos mapper
+#from scheduler.gsolver import gsolve
 
 fig = plt.figure()
 fig2 = plt.figure()
@@ -453,7 +455,8 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     state_vector = init_state(loc, 0)
 
     # Generate the structure
-    gsolve(mset, waypts=traj_vars.waypts)
+    #gsolve(mset, waypts=traj_vars.waypts)
+    lin_assign(mset)
     struc1 = convert_modset_to_struc(mset)
     struc1.state_vector = state_vector
     struc1.traj_vars = traj_vars
