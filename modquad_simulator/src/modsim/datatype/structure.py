@@ -45,7 +45,7 @@ class Structure:
 
         # Equation (4) of the Modquad paper
         # FIXME inertia with parallel axis theorem is not working. Temporary multiplied by zero
-        # self.inertia_tensor = self.n * np.array(params.I) + 1.0 * params.mass * np.diag([
+        #self.inertia_tensor = self.n * np.array(params.I) + 1.0 * params.mass * np.diag([
         #     np.sum(self.yy ** 2),
         #     np.sum(self.xx ** 2),
         #     np.sum(self.yy ** 2) + np.sum(self.xx ** 2)
@@ -65,8 +65,8 @@ class Structure:
         try:
             self.inverse_inertia = np.linalg.inv(self.inertia_tensor)
         except:
-            import sys
-            print("Inverse inertia calculation error: {}".format(sys.exc_info()[0]))
+            print("Inverse inertia calculation error: {}".format(
+                    sys.exc_info()[0]))
             print(self.inertia_tensor)
             print("There are {} robots in structure".format(self.n))
             print("Inertia param is {}".format(params.I))
@@ -74,9 +74,9 @@ class Structure:
             print(self.xx)
             print(self.yy)
             print(self.motor_failure)
-            sys.exit(-1)
+            raise Exception("Inverting inertia exception")
 
-    def gen_hashstring(self):
+    def gen_hashstring(self, en_fail_motor=True):
         """ 
         This is for reconfig, where we need to determine whether to split structure based on
         the shape of it and the faults it contains
@@ -100,10 +100,14 @@ class Structure:
                 shape2.append(';')
         shape = ''.join(shape2)
         # NOTE: range(4) should be range(num_rotor) for however many rotors the system has, we just use quadrotors
-        rotorstat = ','.join(
-                        ''.join('%d' % int((int(mod[7:]), rot) not in self.motor_failure) 
-                        for rot in range(4)) 
-                    for mod in sorted(self.ids))
+        rotorstat = ''
+        if en_fail_motor:
+            rotorstat = ','.join(
+                            ''.join('%d' % int((int(mod[7:]), rot) not in self.motor_failure) 
+                            for rot in range(4)) 
+                        for mod in sorted(self.ids))
+        else:
+            return shape
         #print(pi)
         #print(self.ids)
         #print(self.xx)

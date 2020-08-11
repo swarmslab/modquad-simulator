@@ -107,3 +107,12 @@ venv.bak/
 /.idea/modules.xml
 /.idea/vcs.xml
 /.idea/workspace.xml
+
+# Directories where figures are stored
+figs/
+
+# Auto-generated RVIZ files
+generated.rviz
+
+# Gurobi scheduler files
+mqscheduler/

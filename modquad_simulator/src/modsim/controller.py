@@ -30,7 +30,28 @@ def position_controller(structure, desired_state):
     g = params.grav
 
     # Multi mod control params
-    if num_mod > 4:
+    if num_mod > 30: # Not tuned yet
+        xyp =   7.0
+        xyd =  10.0
+        xyi =   0.01
+        zp  =   8.0
+        zd  =   5.0
+        zi  =   1.5
+    elif num_mod > 19: # 21-30 mods
+        xyp =  7.0
+        xyd =  20.0
+        xyi =   0.01
+        zp  =  10.0
+        zd  =  14.0
+        zi  =   2.5
+    elif num_mod > 12: # 13-20 mods
+        xyp =  7.0
+        xyd =  25.0
+        xyi =   0.01
+        zp  =  10.0
+        zd  =  14.0
+        zi  =   2.5
+    elif num_mod > 4: # 5-12 mods
         # xyp =   10.0 
         # xyd =   10.0 
         # xyi =    0.01 
@@ -193,14 +214,13 @@ def modquad_torque_control(F, M, structure,
                 ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
                 rotor_forces[4 * (ind) + mf[1]] = 0.0
             except:
-                print("ERROR IN ZEROING FAILED MOTOR THRUST")
+                print("")
                 print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
                 print("Fail rotor computed: {}".format(4*(mf[0]-1) + mf[1]))
                 print(structure.ids)
                 print(structure.motor_failure)
                 print(rotor_forces)
-                import sys
-                sys.exit(-1)
+                raise Exception("ERROR IN ZEROING FAILED MOTOR THRUST")
 
     # If ramping is being done, use ramping factors to update thrusts
     # Ramping is part of fault detection mechanism

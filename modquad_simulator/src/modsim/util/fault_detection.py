@@ -1,6 +1,7 @@
 from math import sqrt
 import rospy
 import numpy as np
+import json
 
 from modsim import params
 from modsim.datatype.structure import Structure
@@ -401,3 +402,84 @@ def __get_rot_id(x, y):
     elif y == 0: # Bottom left
         return 0
     return 1 # Bottom right
+
+################## PROFILE BASED FUNCTIONS ######################
+
+def find_suspects_by_profile(structure, residual_log, prof_file):
+    struc_str = structure.gen_hashstring(en_fail_motor=False)
+    try:
+        with open(prof_file, "r") as f:
+            prof = json.load(f)
+    except:
+        raise Exception("File read error for profiles: {}".format(prof_file))
+
+    if struc_str not in prof:
+        raise Exception("Structure not profiled: {}".format(struc_str))
+
+    prof = prof[struc_str]
+
+    # Extract phi dot and theta dot from residual of state vector
+    log = [r[-3:-1] for r in residual_log]
+
+    # Get a mean of the relevant entries from the residual log
+    log = [entry for entry in log if entry[0]**2 + entry[1]**2 > 0.1]
+    log = np.array(log)
+
+    # Get the mean (median?) log entry
+    residual_min = [round(np.min(log[:, 0]), 2), round(np.min(log[:, 1]), 2)]
+    residual_max = [round(np.max(log[:, 0]), 2), round(np.max(log[:, 1]), 2)]
+    residual_med = [round(np.median(log[:, 0]), 2), round(np.median(log[:, 1]), 2)]
+
+    # Loop through the profiled rotors and see which ones match
+    suspects = []
+    for mod_id_str in prof:
+        for rot_id_str in prof[mod_id_str]:
+            record = prof[mod_id_str][rot_id_str]
+            minrange = [round(r, 2) for r in record[0]]
+            maxrange = [round(r, 2) for r in record[1]]
+
+
+            # In addition to each residual entry between the profile and the
+            # observed needing to be similar, we should observe the gap between
+            # \dot{\theta} - \hat{\dot{\theta}} and 
+            # \dot{\phi} - \hat{\dot{\phi}} is similar
+
+            #gap_recorded = record[0] - record[1]
+            #gap_observed = residual[0] - residual[1]
+
+            #print("Check {}: {} | {}  || gap_rec = {:.02f}, gap_obs = {:.02f}".format(
+            #        (mod_id_str, rot_id_str), record, residual,
+            #        gap_recorded, gap_observed))
+            # print("Check {}: [{} - {}] | {}, {}, {}".format(
+            #         (mod_id_str, rot_id_str), minrange, maxrange, 
+            #         residual_min, residual_med, residual_max))
+
+            try:
+                sus = (int(mod_id_str), int(rot_id_str))
+
+                # Check over the range of residuals if any of them fall into the
+                # right range to justify suspecting of this rotor
+                if residual_min[0] >= minrange[0]-0.1 and residual_min[0] <= maxrange[0]+0.1:
+                    if residual_min[1] >= minrange[1]-0.1 and residual_min[1] <= maxrange[1]+0.1:
+                        suspects.append(sus)
+                elif residual_max[0] >= minrange[0]-0.1 and residual_max[0] <= maxrange[0]+0.1:
+                    if residual_max[1] >= minrange[1]-0.1 and residual_max[1] <= maxrange[1]+0.1:
+                            suspects.append(sus)
+                elif residual_med[0] >= minrange[0]-0.1 and residual_med[0] <= maxrange[0]+0.1:
+                    if residual_med[1] >= minrange[1]-0.1 and residual_med[1] <= maxrange[1]+0.1:
+                            suspects.append(sus)
+            except TypeError as e:
+                print(e)
+                raise Exception("Profile file format might not be correct")
+
+            # if abs(abs(residual[0]) - abs(record[0])) < 0.5:
+            #     if abs(abs(residual[1]) - abs(record[1])) < 0.5:
+            #         if abs(gap_recorded - gap_observed) < 0.1:
+            #             suspects.append((int(mod_id_str), int(rot_id_str)))
+
+    print("Profiling based suspects: {}".format(suspects))
+
+    return suspects
+
+def expand_from_epictr(structure, t, next_t, groups, qidx, rotmat, ramp_set):
+    raise Exception("Not implemented yet")

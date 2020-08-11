@@ -181,8 +181,108 @@
         <arg name="color_g" default="1.0"/> 
         <arg name="color_b" default="0.0"/> 
     </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad17"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad18"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad19"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad20"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad21"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad22"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad23"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad24"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
+    <include file="$(arg launch_path)/modquad.launch"> 
+        <arg name="model" value="modquad25"/> 
+ 
+        <arg name="init_x" default="0.0"/> 
+        <arg name="init_y" default="1.0"/> 
+ 
+ 
+        <arg name="color_r" default="0.0"/> 
+        <arg name="color_g" default="1.0"/> 
+        <arg name="color_b" default="0.0"/> 
+    </include>
 
-    <param name="num_robots" value="5" type="int"/>
+    <param name="num_robots" value="25" type="int"/>
+
     <!--Robot Visualization-->
     <!--<node pkg="modquad_simulator" type="visualizer.py" name="visual"/>-->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/thirteen-robots.rviz" required="true"/>

@@ -34,7 +34,9 @@ from modsim.util.fault_detection import fault_exists,               \
                                         update_ramp_rotors,         \
                                         update_ramp_factors,        \
                                         form_groups,                \
-                                        update_rotmat
+                                        update_rotmat,              \
+                                        find_suspects_by_profile,   \
+                                        expand_from_epictr
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
                                               convert_struc_to_mat   , \
@@ -53,7 +55,8 @@ faulty_rots = []
 fmod = sys.argv[1]
 frot = sys.argv[2]
 
-profile_fname = "/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/profiles/fault_profiles.json"
+profile_fname = \
+"/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/profiles/fprof_ranged.json"
 
 # Publish ODOMETRY
 def publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
@@ -141,7 +144,7 @@ def simulate(structure, trajectory_function, sched_mset,
     zmax = np.max(structure.traj_vars.waypts[:, 2])+3
 
     # Plotting coeffs
-    overtime = 1.0
+    overtime = 1.5
     lw=3
     alphaset = 0.8
 
@@ -201,11 +204,13 @@ def simulate(structure, trajectory_function, sched_mset,
     ramp_factor = [1, 0]
 
     # Ramp up times
-    rospy.set_param("fault_det_time_interval", 5.0)
+    rospy.set_param("fault_det_time_interval", 2.0)
 
     fdd_interval = rospy.get_param("fault_det_time_interval")
+    fdetect_time = 0
 
     residual = []
+    residual_log = []
 
     #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
     while t < overtime*tmax + 1.0 / freq:
@@ -228,7 +233,7 @@ def simulate(structure, trajectory_function, sched_mset,
 
         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
 
-        en_motor_sat = True
+        en_motor_sat = False
         en_fail_rotor_act = True
 
         # Control of Moments and thrust
@@ -263,54 +268,79 @@ def simulate(structure, trajectory_function, sched_mset,
 
         # Compute residuals for error detection
         residual = structure.state_vector - est
+        residual_log.append(residual)
 
-        ### # Process the residual - i.e. check for failed rotors via thresholding
-        ### # of residuals
-        ### if fault_exists(residual) and not diagnose_mode:
-        ###     diagnose_mode = True
-        ###     quadrant = get_faulty_quadrant_rotors(residual, structure)
-        ###     rotmat = rotpos_to_mat(structure, quadrant)
-        ###     groups = form_groups(quadrant, rotmat)
-        ###     print("Groups = {}".format(groups))
-        ###     next_diag_t = 0
+        # Process the residual - i.e. check for failed rotors via thresholding
+        # of residuals
+        if fault_exists(residual) and not diagnose_mode:
+            diagnose_mode = True
+            quadrant = get_faulty_quadrant_rotors(residual, structure)
+            rotmat = rotpos_to_mat(structure, quadrant)
+            groups = form_groups(quadrant, rotmat)
+            #print("Groups = {}".format(groups))
 
-        ### # If we are in the diagnose_mode, then we need to iteratively turn off
-        ### # the rotors in the quadrant and see what state error goes to
-        ### if diagnose_mode:
-        ###     if t >= next_diag_t: # Update rotor set
-        ###         # We found the faulty rotor
-        ###         if (abs(residual[-3] < 0.05) and abs(residual[-2]) < 0.05):
-        ###             print("State Est = {}".format(est))
-        ###             print("Residual = {}".format(residual[-3:-1]))
+            # Provide some time for stabilization
+            next_diag_t = t + fdd_interval
+            fdetect_time = t
 
-        ###             # Recurse over set if not already single rotor
-        ###             if (len(ramp_rotor_set[0]) == 1): # Single rotor
-        ###                 print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-        ###                 sys.exit(0)
+        # If we are in the diagnose_mode, then we need to iteratively turn off
+        # the rotors in the quadrant and see what state error goes to
+        if diagnose_mode:
+            if t >= next_diag_t: # Update rotor set
+                # We found the faulty rotor
+                if (abs(residual[-3] < 0.05) and abs(residual[-2]) < 0.05):
+                    print("State Est = {}".format(est))
+                    print("Residual = {}".format(residual[-3:-1]))
 
-        ###             print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
+                    # Recurse over set if not already single rotor
+                    if (len(ramp_rotor_set[0]) == 1): # Single rotor
+                        print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        sys.exit(0)
 
-        ###             rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
+                    print("The faulty rotor is in set {}".format(
+                                                            ramp_rotor_set[0]))
 
-        ###             # Form smaller subgroups
-        ###             groups = form_groups(ramp_rotor_set[0], rotmat)
-        ###             quadrant_idx = 0 # Reset
-        ###             print("New Groups: {}".format(groups))
-        ###             ramp_rotor_set = [[], ramp_rotor_set[0]]
-        ###         else:
-        ###             ramp_rotor_set, quadrant_idx = \
-        ###                             update_ramp_rotors(
-        ###                                     structure,
-        ###                                     t, next_diag_t,
-        ###                                     groups, quadrant_idx,
-        ###                                     rotmat,
-        ###                                     ramp_rotor_set)
-        ###         next_diag_t = t + fdd_interval
-        ###         print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
-        ###         print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
-        ###         print("------------------------------------------------")
-        ###     else: # Update ramping factors
-        ###         ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
+                    rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
+
+                    # Form smaller subgroups
+                    groups = form_groups(ramp_rotor_set[0], rotmat)
+                    quadrant_idx = 0 # Reset
+                    print("New Groups: {}".format(groups))
+                    ramp_rotor_set = [[], ramp_rotor_set[0]]
+                else:
+                    if next_diag_t <= t: #fdetect_time + fdd_interval:
+                        best = [0, 0]
+                        mag = 0
+                        for entry in residual_log[-10:]:
+                            new_mag = entry[-3]**2 + entry[-2]**2 
+                            if new_mag > mag:
+                                best = entry
+                                mag = new_mag
+                        #import pdb; pdb.set_trace()
+                        suspects = find_suspects_by_profile(structure, 
+                                                            residual_log[-10:],
+                                                            profile_fname)
+                        suspects = [sus for sus in suspects if sus in quadrant]
+                        print("Filter suspects by quadrant to get: {}".format(
+                                suspects))
+                        print("Sim done!")
+                        print("==========================================")
+                        import sys
+                        sys.exit(1)
+                    else:
+                        ramp_rotor_set, quadrant_idx = \
+                                    expand_from_epictr(
+                                            structure,
+                                            t, next_diag_t,
+                                            groups, quadrant_idx,
+                                            rotmat,
+                                            ramp_rotor_set)
+                next_diag_t = t + fdd_interval
+                print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+                print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
+                print("------------------------------------------------")
+            else: # Update ramping factors
+                ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
 
         # Store data
         state_log.append(np.copy(structure.state_vector))
@@ -329,19 +359,8 @@ def simulate(structure, trajectory_function, sched_mset,
         if ( t >= tmax/10.0 and not faults_injected ):
             inject_faults(structure, max_faults, sched_mset)
             faults_injected = True
-            print("Residual = {}".format(residual))
+            #print("Residual = {}".format(residual))
 
-
-    # Store the residual in a file
-    pdata = {}
-    with open(profile_fname, "r") as f:
-        pdata = json.load(f)
-        fault_entry = {fmod: {frot: residual[-3:-1]}}
-        ndata = json.loads(fault_entry)
-        pdata.update(ndata)
-
-    with open(profile_fname, "w") as f:
-        json.dump(pdata, f, indent=4)
 
     # Process the final residual - i.e. check for failed rotors via thresholding
     # of residuals
@@ -466,16 +485,21 @@ if __name__ == '__main__':
     #sys.exit(0)
     rospy.set_param("fdd_group_type", "log4")
     random.seed(1)
+    spd=5.0
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(9, 9), 
+                       structure_gen.rect(3, 3), 
                        #structure_gen.airplane(5,5,3),
                        waypt_gen.helix(radius=2.5, rise=3, num_circ=3),
                        #waypt_gen.line([0,0,0],[1,1,1]),
-                       speed=2.5, test_id="2.5x2helix", 
+                       speed=spd, 
+                       test_id="2.5x3x3helix", 
                        doreform=True, max_fault=1, rand_fault=False)
     #print("Force used: {}".format(results[0]))
     #print("RMSE Position Error: {}".format(np.mean(results[1])))
     #print("Faults: {}".format(faulty_rots))
+    print("Sim complete!")
+
     print("---------------------------------------------------------------")
+
