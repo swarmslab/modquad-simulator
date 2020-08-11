@@ -10,31 +10,53 @@ branch is where it works at the moment.
 * install python packages `$ sudo pip install --upgrade numpy scipy transforms3d`
 
 ### Launching the simulator
-The simulator for five quadrotors is launched by
+The simulator for ```num_robots``` robots is launched by calling:
+```
+$ roslaunch modquad_simulator programmatic_launch.launch nr:=${num_robots}
+```
+This launch file creates a module `modquad_sim` for each robot. This module
+simulates the dynamics of a quadrotor and displays its pose in RViz.
+
+This launch will auto-generated the requisite RViz settings for the number of
+robots specified.
+
+Note that the initial location of quadrotors is not modifiable as it is when you
+call
 ```
 $ roslaunch modquad_simulator simulation.launch
 ```
-This launch file creates a module `modquad_sim` for each robot. This module simulates the dynamics of a quadrotor and displays its pose in RViz.
-The launch file `simulation.launch` can be easily modified to change the number of quadrotors, their initial location and their color. Note that every new robot needs to be added in RViz too.
+and manually enter the initial locations and colors.
+
+The launch file `simulation.launch` can be easily modified to change the number
+of quadrotors, their initial location and their color. Note that every new robot
+needs to be added in RViz too.
 
 As well as the actual crazyflie robot, the simulated quadrotor receives two inputs:
-* Attitude command: the topic _cmd_vel_ receives the desired thrust, roll, pitch and yaw inputs. It follows the same format as the `crazyflie_ros `package.
-* Goal: using the `crazyflie_controller` package, the simulator also receives goals through the _goal_ topic. This package also includes the services for taking off and landing (see the documentation of the package). 
+* Attitude command: the topic _cmd_vel_ receives the desired thrust, roll, pitch
+  and yaw inputs. It follows the same format as the `crazyflie_ros `package.
+* Goal: using the `crazyflie_controller` package, the simulator also receives
+  goals through the _goal_ topic. This package also includes the services for
+  taking off and landing (see the documentation of the package). 
 
-### Demo
-Once the simulator is running, we can send desired goals to the robots.  The following script runs a demo that 
-takes off the robots and makes them move in a circle.
+### Out-of-the-Box Demos
+Once the simulator is running, we can send desired goals to the robots.  The
+following script runs a demo that takes off the robots and makes them move in a
+circle.
 ```
 rosrun demo-simulator demo_circle_multiple.py
 ```
-#### Demo after many changes
-The current runnable demo is 
-```
-rosrun modquad_simulator disperse_sim.py
-```
-It starts nine robots off in a line on the ground and has them move into a helical shape.
 
-#### Demo as of Dec. 2019
+We can also see some simple tests of bound structures using the command:
+```
+rosrun modquad-simulator control_testing.py
+```
+
+Further, we can simulate the injection of faulty rotors using
+```
+rosrun modquad-simulator fdd_profile_sim.py $faulty_module $faulty_rotor
+```
+
+#### Demo for Reconfiguration
 After many more changes, here is the new set of commands to run:
 NOTE: This requires the mqscheduler package to run correctly
 ```zsh
