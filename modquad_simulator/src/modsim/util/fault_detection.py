@@ -283,6 +283,9 @@ def form_groups(rot_list, rotmat):
         groups = _form_vline_rotor_groups(rot_list, rotmat)
     elif gtype == "log4":
         groups = _form_log4_rotor_groups(rot_list, rotmat)
+    elif gtype == "log":
+        log_fac = rospy.get_param("fdd_log_factor", 4.0)
+        groups = _form_logn_rotor_groups(rot_list, rotmat, log_fac)
     else:
         raise Exception("Group type \"{}\" not implemented".format(gtype))
 
@@ -368,25 +371,25 @@ def _form_log4_rotor_groups(rot_list, rotmat):
     except:
         pass
 
-    # Find all places where matrix is nonnegative
-    #indices = np.where(rotmat > -1)
-
-    #submat = rotmat[indices[0][0]:indices[0][-1]+1,
-    #                indices[1][0]:indices[1][-1]+1]
-
-    #center_x = int(submat.shape[0] / 2)
-    #center_y = int(submat.shape[1] / 2)
-
-    #try:
-    #    g1 = submat[0:center_x, 0:center_y]
-    #    g2 = submat[center_x: , 0:center_y]
-    #    g3 = submat[0:center_x, center_y: ]
-    #    g4 = submat[center_x: , center_y: ]
-    #except:
-    #    raise Exception("Screwed up")
-
-
     return [g1, g2, g3, g4]
+
+def _form_logn_rotor_groups(rot_list, rotmat, log_fac):
+
+    qsize = int(len(rot_list) / log_fac)
+    if qsize < 1:
+        qsize = 1
+
+    groups = []
+
+    try:
+        last_ind = 0
+        num_rot = len(rot_list)
+        for i in range(log_fac):
+            groups.append(rot_list[i * qsize : (i+1) * qsize])
+    except:
+        raise Exception("Issue with log {} grouping".format(log_fac))
+
+    return groups
 
 def __get_rot_id(x, y):
     """

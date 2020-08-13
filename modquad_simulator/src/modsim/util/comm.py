@@ -84,7 +84,7 @@ def publish_odom(x, pub):
     pub.publish(odom)
 
 
-def publish_odom_relative(structure_x, structure_y, id_frame, relative_to_frame,pub):
+def publish_odom_relative(structure_x, structure_y, id_frame, relative_to_frame, pub):
     """
     Convert quad state into an odometry message and publish it.
     :param x:
@@ -188,7 +188,7 @@ def publish_acc(state_vec, lin_acc, pub):
     :param x: 
     :param pub: 
     """
-    # Roll pitch yaw trust
+    # Roll pitch yaw thrust
     imu = Imu()
 
     imu.header.stamp = rospy.Time.now()
@@ -217,3 +217,52 @@ def publish_acc(state_vec, lin_acc, pub):
     imu.angular_velocity_covariance[0] = -1
 
     pub.publish(imu)
+
+"""""""""""""""""""""""""""""
+PUBLISHERS FOR STRUCTURES
+"""""""""""""""""""""""""""""
+
+# Publish ODOMETRY
+def publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
+    if robot_id == main_id: # main_id already published
+        return
+    publish_odom_relative(structure_x - xx[0], structure_y - yy[0], robot_id, main_id, odom_publishers[robot_id])
+    publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], structure_y - yy[0], tf_broadcaster)
+
+def publish_structure_odometry(structure, odom_publishers, tf_broadcaster):
+    ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
+
+    main_id = ids[0]
+    publish_transform_stamped(main_id, x, tf_broadcaster)
+    publish_odom(x, odom_publishers[main_id])
+
+    # show the other robots
+    for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]:
+        #if (robot_id == 'modquad10'):
+        #    import pdb; pdb.set_trace()
+        publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], structure_y - yy[0], tf_broadcaster)
+        publish_odom_relative(structure_x - xx[0], structure_y - yy[0], robot_id, main_id, odom_publishers[robot_id])
+        #publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
+        #                               main_id, odom_publishers, tf_broadcaster)  
+    #[publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
+    #    main_id, odom_publishers, tf_broadcaster)
+    #    for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
+
+# Publish ACCELERATION
+def publish_acc_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, 
+				  main_id, acc_publishers, tf_broadcaster):
+	ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
+	main_id = ids[0]
+	return
+
+def publish_structure_acc(structure, state_log, tdelta):
+    vel1 = state_log[-1][3:6]
+    vel2 = state_log[-2][3:6]
+    acc = (vel2 - vel1) / tdelta
+
+    pub = rospy.Publisher('/struc' + str(structure.struc_id) + '/imu', 
+                            Imu, queue_size=10) 
+
+    # This will publish to structure topic
+    publish_acc(structure.state_vector, acc, pub)
+    return

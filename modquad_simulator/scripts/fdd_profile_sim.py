@@ -486,7 +486,8 @@ if __name__ == '__main__':
     print("starting simulation")
     #print(structure_gen.airplane(5,5,3).struc)
     #sys.exit(0)
-    rospy.set_param("fdd_group_type", "log4")
+    rospy.set_param("fdd_group_type", "logn")
+    rospy.set_param("fdd_log_factor", 2)
     random.seed(1)
     spd=5.0
     results = test_shape_with_waypts(

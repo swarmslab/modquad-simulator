@@ -22,8 +22,16 @@ from modsim.attitude import attitude_controller
 
 from modsim.datatype.structure import Structure
 
-from modsim.util.comm import publish_acc, publish_odom, publish_transform_stamped, publish_odom_relative, \
-    publish_transform_stamped_relative
+# Functions to publish odom, transforms, and acc
+from modsim.util.comm import publish_acc, publish_odom, \
+                             publish_transform_stamped, \
+                             publish_odom_relative,     \
+                             publish_transform_stamped_relative, \
+                             publish_structure_acc,     \
+                             publish_acc_for_attached_mods, \
+                             publish_structure_odometry, \
+                             publish_odom_for_attached_mods
+
 from modsim.util.state import init_state, state_to_quadrotor
 from modquad_simulator.srv import Dislocation, DislocationResponse
 from modsim.simulation.ode_integrator import simulation_step
@@ -36,6 +44,8 @@ from modsim.util.fault_detection import fault_exists,               \
                                         form_groups,                \
                                         update_rotmat
 
+from modsim.util.fault_injection import inject_faults
+
 from modquad_sched_interface.interface import convert_modset_to_struc, \
                                               convert_struc_to_mat   , \
                                               rotpos_to_mat
@@ -43,7 +53,8 @@ from modquad_sched_interface.interface import convert_modset_to_struc, \
 import modquad_sched_interface.waypt_gen as waypt_gen
 import modquad_sched_interface.structure_gen as structure_gen
 
-from scheduler.gsolver import gsolve
+#from scheduler.gsolver import gsolve
+from modquad_sched_interface.simple_scheduler import lin_assign
 
 fig = plt.figure()
 fig2 = plt.figure()
@@ -53,65 +64,11 @@ faulty_rots = []
 fmod = sys.argv[1]
 frot = sys.argv[2]
 
-profile_fname = "/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/profiles/fault_profiles.json"
-
-# Publish ODOMETRY
-def publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
-    publish_odom_relative(structure_x - xx[0], structure_y - yy[0], robot_id, main_id, odom_publishers[robot_id])
-    publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], structure_y - yy[0], tf_broadcaster)
-
-def publish_structure_odometry(structure, odom_publishers, tf_broadcaster):
-    ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
-
-    main_id = ids[0]
-    publish_odom(x, odom_publishers[main_id])
-    publish_transform_stamped(main_id, x, tf_broadcaster)
-
-    # show the other robots
-    [publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
-        main_id, odom_publishers, tf_broadcaster)
-        for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
-
-# Publish ACCELERATION
-def publish_acc_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, 
-				  main_id, acc_publishers, tf_broadcaster):
-	ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
-	main_id = ids[0]
-	return
-
-def publish_structure_acc(structure, state_log, tdelta):
-    vel1 = state_log[-1][3:6]
-    vel2 = state_log[-2][3:6]
-    acc = (vel2 - vel1) / tdelta
-
-    pub = rospy.Publisher('/struc' + str(structure.struc_id) + '/imu', 
-                            Imu, queue_size=1) 
-
-    # This will publish to structure topic
-    publish_acc(structure.state_vector, acc, pub)
-    return
-
-def inject_faults(mq_struc, max_faults, mset):
-    global faulty_rots
-    faulty_rots = []
-    num_faults = 0
-    while num_faults < max_faults:
-        #newfault = (random.randint(0,mset.num_mod-1), random.randint(0,3))
-        newfault = (int(fmod), int(frot))
-        if newfault not in faulty_rots:
-            faulty_rots.append(newfault)
-            num_faults += 1	
-        num_faults += 1
-
-    print("Injecting faults: {}".format(faulty_rots))
-    for f in faulty_rots:
-        mq_struc.motor_failure.append(f)
-    #faulty_rots = [(f[0]+1, f[1]) for f in faulty_rots]
-    faulty_rots = [(f[0], f[1]) for f in faulty_rots]
-
 def simulate(structure, trajectory_function, sched_mset,
         t_step=0.01, speed=1, figind=1, 
         filesuffix="", max_faults=1):
+
+    global faulty_rots
 
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
@@ -157,12 +114,7 @@ def simulate(structure, trajectory_function, sched_mset,
 
     # Odom publisher
     odom_publishers = {id_robot: 
-            rospy.Publisher('/' + id_robot + odom_topic, Odometry, queue_size=0) 
-            for id_robot in structure.ids}
-
-    # Imu publisher
-    imu_publishers = {id_robot: 
-            rospy.Publisher('/' + id_robot + imu_topic, Imu, queue_size=1) 
+            rospy.Publisher('/' + id_robot + odom_topic, Odometry, queue_size=10) 
             for id_robot in structure.ids}
 
     # TF publisher
@@ -214,6 +166,7 @@ def simulate(structure, trajectory_function, sched_mset,
             print("{:.01f} / {:.01f} - Residual = {}".format(t, overtime*tmax, residual))
 
         # Publish odometry
+        #import pdb; pdb.set_trace()
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
@@ -264,89 +217,70 @@ def simulate(structure, trajectory_function, sched_mset,
         # Compute residuals for error detection
         residual = structure.state_vector - est
 
-        ### # Process the residual - i.e. check for failed rotors via thresholding
-        ### # of residuals
-        ### if fault_exists(residual) and not diagnose_mode:
-        ###     diagnose_mode = True
-        ###     quadrant = get_faulty_quadrant_rotors(residual, structure)
-        ###     rotmat = rotpos_to_mat(structure, quadrant)
-        ###     groups = form_groups(quadrant, rotmat)
-        ###     print("Groups = {}".format(groups))
-        ###     next_diag_t = 0
+        # Process the residual - i.e. check for failed rotors via thresholding
+        # of residuals
+        if fault_exists(residual) and not diagnose_mode:
+            diagnose_mode = True
+            quadrant = get_faulty_quadrant_rotors(residual, structure)
+            rotmat = rotpos_to_mat(structure, quadrant)
+            groups = form_groups(quadrant, rotmat)
+            print("Groups = {}".format(groups))
+            next_diag_t = 0
 
-        ### # If we are in the diagnose_mode, then we need to iteratively turn off
-        ### # the rotors in the quadrant and see what state error goes to
-        ### if diagnose_mode:
-        ###     if t >= next_diag_t: # Update rotor set
-        ###         # We found the faulty rotor
-        ###         if (abs(residual[-3] < 0.05) and abs(residual[-2]) < 0.05):
-        ###             print("State Est = {}".format(est))
-        ###             print("Residual = {}".format(residual[-3:-1]))
+        # If we are in the diagnose_mode, then we need to iteratively turn off
+        # the rotors in the quadrant and see what state error goes to
+        if diagnose_mode:
+            if t >= next_diag_t: # Update rotor set
+                # We found the faulty rotor
+                if (abs(residual[-3] < 0.05) and abs(residual[-2]) < 0.05):
+                    print("State Est = {}".format(est))
+                    print("Residual = {}".format(residual[-3:-1]))
 
-        ###             # Recurse over set if not already single rotor
-        ###             if (len(ramp_rotor_set[0]) == 1): # Single rotor
-        ###                 print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-        ###                 sys.exit(0)
+                    # Recurse over set if not already single rotor
+                    if (len(ramp_rotor_set[0]) == 1): # Single rotor
+                        print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        sys.exit(0)
 
-        ###             print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
+                    print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
 
-        ###             rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
+                    rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
 
-        ###             # Form smaller subgroups
-        ###             groups = form_groups(ramp_rotor_set[0], rotmat)
-        ###             quadrant_idx = 0 # Reset
-        ###             print("New Groups: {}".format(groups))
-        ###             ramp_rotor_set = [[], ramp_rotor_set[0]]
-        ###         else:
-        ###             ramp_rotor_set, quadrant_idx = \
-        ###                             update_ramp_rotors(
-        ###                                     structure,
-        ###                                     t, next_diag_t,
-        ###                                     groups, quadrant_idx,
-        ###                                     rotmat,
-        ###                                     ramp_rotor_set)
-        ###         next_diag_t = t + fdd_interval
-        ###         print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
-        ###         print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
-        ###         print("------------------------------------------------")
-        ###     else: # Update ramping factors
-        ###         ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
+                    # Form smaller subgroups
+                    groups = form_groups(ramp_rotor_set[0], rotmat)
+                    quadrant_idx = 0 # Reset
+                    print("New Groups: {}".format(groups))
+                    ramp_rotor_set = [[], ramp_rotor_set[0]]
+                else:
+                    ramp_rotor_set, quadrant_idx = \
+                                    update_ramp_rotors(
+                                            structure,
+                                            t, next_diag_t,
+                                            groups, quadrant_idx,
+                                            rotmat,
+                                            ramp_rotor_set)
+                next_diag_t = t + fdd_interval
+                print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+                print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
+                print("------------------------------------------------")
+            else: # Update ramping factors
+                ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
 
         # Store data
         state_log.append(np.copy(structure.state_vector))
         forces_log.append(rotor_forces)
         ind += 1.0
 
-        # Publish the acceleration data
-        if not can_pub_imu:
-            # Need at least three log entries to get the acceleration
-            if (ind > 2):
-                can_pub_imu = True
-        else:
-            publish_structure_acc(structure, state_log, 1.0/freq)
-
         # Inject faults
         if ( t >= tmax/10.0 and not faults_injected ):
-            inject_faults(structure, max_faults, sched_mset)
+            faulty_rots = inject_faults(structure, max_faults, 
+                                        sched_mset, faulty_rots,
+                                        fmod, frot)
             faults_injected = True
             print("Residual = {}".format(residual))
 
+        # Sleep so that we can maintain a 100 Hz update rate
+        rate.sleep()
 
-    # Store the residual in a file
-    pdata = {}
-    with open(profile_fname, "r") as f:
-        pdata = json.load(f)
-        fault_entry = {fmod: {frot: residual[-3:-1]}}
-        ndata = json.loads(fault_entry)
-        pdata.update(ndata)
-
-    with open(profile_fname, "w") as f:
-        json.dump(pdata, f, indent=4)
-
-    # Process the final residual - i.e. check for failed rotors via thresholding
-    # of residuals
-    #residual = structure.state_vector - est
-    #print("[{:.02f}] Residual: {}".format(t, ["{:.02f}".format(entry) for entry in residual[-3:-1]]))
 
     traj_vars = structure.traj_vars 
     pos_err_log /= ind
@@ -434,7 +368,8 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     state_vector = init_state(loc, 0)
 
     # Generate the structure
-    gsolve(mset, waypts=traj_vars.waypts)
+    #gsolve(mset, waypts=traj_vars.waypts)
+    lin_assign(mset)
     struc1 = convert_modset_to_struc(mset)
     struc1.state_vector = state_vector
     struc1.traj_vars = traj_vars
@@ -469,11 +404,11 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(9, 9), 
+                       structure_gen.rect(3, 4), 
                        #structure_gen.airplane(5,5,3),
-                       waypt_gen.helix(radius=2.5, rise=3, num_circ=3),
+                       waypt_gen.helix(radius=2.5, rise=1, num_circ=2),
                        #waypt_gen.line([0,0,0],[1,1,1]),
-                       speed=2.5, test_id="2.5x2helix", 
+                       speed=2.5, test_id="4x4rect_2.5x1x2helix", 
                        doreform=True, max_fault=1, rand_fault=False)
     #print("Force used: {}".format(results[0]))
     #print("RMSE Position Error: {}".format(np.mean(results[1])))
