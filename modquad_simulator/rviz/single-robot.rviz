@@ -1,0 +1,40 @@
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad01/mesh_visualization/robot
+      Name: modquad01
+      Namespaces:
+        /modquad01/mesh_visualization: true
+      Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.5
+      Name: Origin
+      Radius: 0.009999999776482582
+      Reference Frame: world
+      Value: true
+    - Class: rviz/Group
+      Displays:
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 255; 25; 0
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal01
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad01/goal
+          Unreliable: false
+          Value: true
+      Enabled: true
+      Name: goals1
+  Enabled: true

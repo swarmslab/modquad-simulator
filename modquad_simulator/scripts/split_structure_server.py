@@ -87,8 +87,8 @@ def handle_split_structure(args):
     indices = list(zip(*indices))
     
     Gnodes = list(G.nodes)
-    ids1 = [struc[Gnodes[i][0], Gnodes[i][1]] for i in range(len(indices)) if Gnodes[i] in s1.nodes]
-    ids2 = [struc[Gnodes[i][0], Gnodes[i][1]] for i in range(len(indices)) if Gnodes[i] in s2.nodes]
+    ids1 = [int(struc[Gnodes[i][0], Gnodes[i][1]]) for i in range(len(indices)) if Gnodes[i] in s1.nodes]
+    ids2 = [int(struc[Gnodes[i][0], Gnodes[i][1]]) for i in range(len(indices)) if Gnodes[i] in s2.nodes]
     xx1  = [ xx[ids.index(struc[Gnodes[i][0], Gnodes[i][1]])] for i in range(len(indices)) if Gnodes[i] in s1.nodes]
     xx2  = [ xx[ids.index(struc[Gnodes[i][0], Gnodes[i][1]])] for i in range(len(indices)) if Gnodes[i] in s2.nodes]
     yy1  = [ yy[ids.index(struc[Gnodes[i][0], Gnodes[i][1]])] for i in range(len(indices)) if Gnodes[i] in s1.nodes]

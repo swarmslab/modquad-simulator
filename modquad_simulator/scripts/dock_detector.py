@@ -116,7 +116,7 @@ def manual_dock_service(manual_dock_srv):
         # manual_docking[i] = val
 
     manual_docking = tmp_manual_docking
-    print manual_docking
+    print(manual_docking)
     return ManualDockResponse()
 
 def detect_dockings():
@@ -150,7 +150,7 @@ def detect_dockings():
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     pos_manager = WorldPosManager(n)
-    docking = [0 for _ in range(n * (n - 1) / 2)]
+    docking = [0 for _ in range(int(n * (n - 1) / 2))]
 
     # Gets all robot locations
     pos_manager.subscribe()

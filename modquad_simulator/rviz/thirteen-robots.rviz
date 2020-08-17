@@ -1,0 +1,735 @@
+Panels:
+  - Class: rviz/Displays
+    Help Height: 84
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Status1
+        - /modquad021/Namespaces1
+        - /Origin1
+        - /goals11
+      Splitter Ratio: 0.5
+    Tree Height: 715
+  - Class: rviz/Selection
+    Name: Selection
+  - Class: rviz/Tool Properties
+    Expanded:
+      - /2D Pose Estimate1
+      - /2D Nav Goal1
+      - /Publish Point1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz/Time
+    Experimental: false
+    Name: Time
+    SyncMode: 0
+    SyncSource: ""
+Preferences:
+  PromptSaveOnExit: true
+Toolbars:
+  toolButtonStyle: 2
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad01/mesh_visualization/robot
+      Name: modquad01
+      Namespaces:
+        /modquad01/mesh_visualization: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad02/mesh_visualization/robot
+      Name: modquad02
+      Namespaces:
+        /modquad02/mesh_visualization: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad03/mesh_visualization/robot
+      Name: modquad03
+      Namespaces:
+        /modquad03/mesh_visualization: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad04/mesh_visualization/robot
+      Name: modquad04
+      Namespaces:
+        /modquad04/mesh_visualization: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad05/mesh_visualization/robot
+      Name: modquad05
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad06/mesh_visualization/robot
+      Name: modquad06
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad07/mesh_visualization/robot
+      Name: modquad07
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad08/mesh_visualization/robot
+      Name: modquad08
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad09/mesh_visualization/robot
+      Name: modquad09
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad10/mesh_visualization/robot
+      Name: modquad10
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad11/mesh_visualization/robot
+      Name: modquad11
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad12/mesh_visualization/robot
+      Name: modquad12
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad13/mesh_visualization/robot
+      Name: modquad13
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad14/mesh_visualization/robot
+      Name: modquad14
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad15/mesh_visualization/robot
+      Name: modquad15
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad16/mesh_visualization/robot
+      Name: modquad16
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad17/mesh_visualization/robot
+      Name: modquad17
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad18/mesh_visualization/robot
+      Name: modquad18
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad19/mesh_visualization/robot
+      Name: modquad19
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad20/mesh_visualization/robot
+      Name: modquad20
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad21/mesh_visualization/robot
+      Name: modquad21
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad22/mesh_visualization/robot
+      Name: modquad22
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad23/mesh_visualization/robot
+      Name: modquad23
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad24/mesh_visualization/robot
+      Name: modquad24
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /modquad25/mesh_visualization/robot
+      Name: modquad25
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.5
+      Name: Origin
+      Radius: 0.009999999776482582
+      Reference Frame: world
+      Value: true
+    - Class: rviz/Group
+      Displays:
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 255; 25; 0
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal01
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad01/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 138; 226; 52
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal02
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad02/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal03
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad03/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal04
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad04/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal05
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad05/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal06
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad06/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal07
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad07/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal08
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad08/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal09
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad09/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal10
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad10/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal11
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad11/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal12
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad12/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal13
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad13/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal14
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad14/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal15
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad15/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal16
+          Queue Size: 10
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad16/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal17
+          Queue Size: 10
+          Shaft Length: 0.10000000149011712
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad17/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal18
+          Queue Size: 10
+          Shaft Length: 0.10000000149011812
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad18/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal19
+          Queue Size: 10
+          Shaft Length: 0.10000000149011912
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad19/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal20
+          Queue Size: 10
+          Shaft Length: 0.10000000149012012
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad20/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal21
+          Queue Size: 10
+          Shaft Length: 0.10000000149012112
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad21/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal22
+          Queue Size: 10
+          Shaft Length: 0.10000000149012212
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad22/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal23
+          Queue Size: 10
+          Shaft Length: 0.10000000149012312
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad23/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal24
+          Queue Size: 10
+          Shaft Length: 0.10000000149012412
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad24/goal
+          Unreliable: false
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz/Pose
+          Color: 115; 210; 22
+          Enabled: true
+          Head Length: 0.05000000074505806
+          Head Radius: 0.029999999329447746
+          Name: goal25
+          Queue Size: 10
+          Shaft Length: 0.10000000149012512
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow
+          Topic: /modquad25/goal
+          Unreliable: false
+          Value: true
+      Enabled: true
+      Name: goals1
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/FocusCamera
+    - Class: rviz/Measure
+    - Class: rviz/SetInitialPose
+      Theta std deviation: 0.2617993950843811
+      Topic: /initialpose
+      X std deviation: 0.5
+      Y std deviation: 0.5
+    - Class: rviz/SetGoal
+      Topic: /move_base_simple/goal
+    - Class: rviz/PublishPoint
+      Single click: true
+      Topic: /clicked_point
+  Value: true
+  Views:
+    Current:
+      Class: rviz/Orbit
+      Distance: 12.297933578491211
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Field of View: 0.7853981852531433
+      Focal Point:
+        X: -0.4153444468975067
+        Y: -0.1520715206861496
+        Z: 0.4364039897918701
+      Focal Shape Fixed Size: false
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.6297972202301025
+      Target Frame: world
+      Yaw: 5.207927703857422
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1026
+  Hide Left Dock: false
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd00000004000000000000016a0000035afc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000035a000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f0000035dfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d0000035d000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000077e0000004cfc0100000002fb0000000800540069006d006501000000000000077e0000024400fffffffb0000000800540069006d006501000000000000045000000000000000000000060e0000035a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Selection:
+    collapsed: false
+  Time:
+    collapsed: false
+  Tool Properties:
+    collapsed: false
+  Views:
+    collapsed: false
+  Width: 1918
+  X: 0
+  Y: 26

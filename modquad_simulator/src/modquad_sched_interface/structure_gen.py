@@ -21,8 +21,8 @@ def zero(height, base):
 
 def plus(height, base):
     struc = np.zeros((height, base))
-    struc[height/2, :] = 1
-    struc[:, base/2] = 1
+    struc[int(height/2), :] = 1
+    struc[:, int(base/2)] = 1
     num_mod = len(np.nonzero(struc)[0])
     return modset(num_mod, struc)
 

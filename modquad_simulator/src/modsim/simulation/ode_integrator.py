@@ -31,4 +31,5 @@ def simulation_step(structure, state_vector, F, M, time_step):
         if state_vector[5] < 0:
             state_vector[5] = 0.
 
+    # Return the new state vector and the derivative used to arrive at it
     return state_vector

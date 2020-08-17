@@ -60,7 +60,20 @@ def publish_structure_odometry(structure, odom_publishers, tf_broadcaster):
     # show the other robots
     [publish_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, 
         main_id, odom_publishers, tf_broadcaster) 
-        for robot_id, structure_x, structure_y in zip(ids, xx, yy)[1:]]
+        for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
+
+def publish_structure_acceleration(structure, sdot, acc_publishers, tf_broadcaster):
+    #ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
+
+    #main_id = ids[0]
+    #publish_acc(x, acc_publishers[main_id])
+    #publish_transform_stamped(main_id, x, tf_broadcaster)
+
+    ## show the other robots
+    #[publish_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, 
+    #    main_id, odom_publishers, tf_broadcaster) 
+    #    for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
+    return
 
 def publish_mod_pos(structure, pos_publishers):
     ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
@@ -77,7 +90,7 @@ def publish_mod_pos(structure, pos_publishers):
          0.0, 0.0, 0.0, 0.0, # Orientation
          0.0, 0.0, 0.0],     # Ang vel
         pos_publishers[idval])
-        for idval, xval, yval in zip(ids, xx, yy)[1:]]
+        for idval, xval, yval in list(zip(ids, xx, yy))[1:]]
 
 class StructureManager:
     def __init__(self, struclist):
@@ -88,7 +101,7 @@ class StructureManager:
         self.desired_states_log = [[] for _ in range(len(self.strucs))]
 
     def control_step(self, t, trajectory_function, speed, 
-            odom_publishers, pos_publishers, tf_broadcaster):
+            odom_publishers, pos_publishers, acc_publishers, tf_broadcaster):
 
         # NOTE: for some reason loop by value over a zip() does not work
         for i, structure in enumerate(self.strucs):
@@ -145,8 +158,14 @@ class StructureManager:
             except:
                 # The joining of strucs cause the value of i to be out of range
                 pass
-            structure.state_vector = simulation_step(structure, structure.state_vector, 
+
+            # sdot is the state vector derivative
+            structure.state_vector, sdot = simulation_step(structure, structure.state_vector, 
                             F_structure, M_structure, 1. / self.freq)
+
+            # For IMU data, we need this information
+            publish_structure_acceleration(structure, sdot, acc_publishers, tf_broadcaster)
+
             #if i == 1:
             #    print("New state = {}".format(structure.state_vector))
             #    print('-----')

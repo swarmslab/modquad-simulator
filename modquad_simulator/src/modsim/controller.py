@@ -30,7 +30,34 @@ def position_controller(structure, desired_state):
     g = params.grav
 
     # Multi mod control params
-    if num_mod > 4:
+    if num_mod > 30: # Not tuned yet
+        xyp =   7.0
+        xyd =  10.0
+        xyi =   0.01
+        zp  =   8.0
+        zd  =   5.0
+        zi  =   1.5
+    elif num_mod > 19: # 21-30 mods
+        xyp =  7.0
+        xyd =  20.0
+        xyi =   0.01
+        zp  =  10.0
+        zd  =  14.0
+        zi  =   2.5
+    elif num_mod > 12: # 13-20 mods
+        xyp =  7.0
+        xyd =  25.0
+        xyi =   0.01
+        zp  =  10.0
+        zd  =  14.0
+        zi  =   2.5
+    elif num_mod > 4: # 5-12 mods
+        # xyp =   10.0 
+        # xyd =   10.0 
+        # xyi =    0.01 
+        # zp  =   15.0
+        # zd  =   15.0 
+        # zi  =    1.5 
         xyp =  15.0 
         xyd =  30.0 
         xyi =   0.00 
@@ -39,12 +66,24 @@ def position_controller(structure, desired_state):
         zi  =   2.5 
     # Control gains for 3-4 mods
     elif num_mod > 3:
-        xyp =  29.0
-        xyd =  51.0
+        #xyp =  1.0
+        #xyd =  1.0
+        #xyi =   0.01
+        #zp  =   1.0
+        #zd  =   1.0
+        #zi  =   0.5
+        xyp =  10.0
+        xyd =  40.0
         xyi =   0.01
-        zp  =  13.0
-        zd  =  18.0
+        zp  =  10.0
+        zd  =  30.0
         zi  =   2.5
+        ##xyp =  29.0
+        ##xyd =  51.0
+        ##xyi =   0.01
+        ##zp  =  13.0
+        ##zd  =  18.0
+        ##zi  =   2.5
     elif num_mod > 2:
         xyp =  39.0
         xyd =  91.0
@@ -100,7 +139,9 @@ def position_controller(structure, desired_state):
     return [thrust, phi_des, theta_des, psi_des]
 
 
-def modquad_torque_control(F, M, structure, motor_sat=False):
+def modquad_torque_control(F, M, structure,
+                            motor_sat=False, en_fail_rotor=False, 
+                            ramp_rotor_set=[], ramp_factor=[]):
     """
     This function is similar to crazyflie_motion, but it is made for modular robots. So it specifies the dynamics
     of the modular structure. It receives a desired force and moment of a single robot.
@@ -108,6 +149,12 @@ def modquad_torque_control(F, M, structure, motor_sat=False):
     :param motor_sat: motor saturation
     :param F: desired total thrust, float
     :param M: desired moments, 3 x 1 float vector
+    :param ramp_rotor_set: [[],[]] list of two sets of rotor tuples 
+                            (mod_id, rot-id) where first list shows set of
+                            rotors to ramp down and second the set of 
+                            rotors to ramp up
+    :param ramp_factor: [x, y] where x is ramp_down factor and 
+                        y is ramp_up factor. x + y = 1
     :return: thrust and moments for the whole structure
     """
     ## From moments to rotor forces (power distribution)
@@ -161,23 +208,48 @@ def modquad_torque_control(F, M, structure, motor_sat=False):
     rotor_forces = np.dot(A, [F, M[0], M[1]])  # Not using moment about Z-axis for limits
 
     # Failing motors -- IDs are 1-indexed, but rotor pos are 0-indexed
-    for mf in structure.motor_failure:
-        try:
-            ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
-            rotor_forces[4 * (ind-1) + mf[1]] *= 0.0
-        except:
-            print("ERROR IN ZEROING FAILED MOTOR THRUST")
-            print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
-            print("Fail rotor computed: {}".format(4*(mf[0]-1) + mf[1]))
-            print(structure.ids)
-            #print(structure.xx)
-            #print(structure.yy)
-            print(structure.motor_failure)
-            #print(np.array(A))
-            #print(np.array([F,M[0],M[1]]))
-            print(rotor_forces)
-            import sys
-            sys.exit(-1)
+    if en_fail_rotor:
+        for mf in structure.motor_failure:
+            try:
+                ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
+                rotor_forces[4 * (ind) + mf[1]] = 0.0
+            except:
+                print("")
+                print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
+                print("Fail rotor computed: {}".format(4*(mf[0]-1) + mf[1]))
+                print(structure.ids)
+                print(structure.motor_failure)
+                print(rotor_forces)
+                raise Exception("ERROR IN ZEROING FAILED MOTOR THRUST")
+
+    # If ramping is being done, use ramping factors to update thrusts
+    # Ramping is part of fault detection mechanism
+    if len(ramp_rotor_set) > 0:
+        if len(ramp_rotor_set) != 2 or len(ramp_factor) != 2:
+            raise Exception(["Rotor ramping error, list size is wrong\n",
+                            "ramp_rotor_set = {}, len = {}".format(
+                                ramp_rotor_set, len(ramp_rotor_set)),
+                            "ramp_factor = {}, len = {}".format(
+                                ramp_factor, len(ramp_factor))
+                            ])
+
+        for rr in ramp_rotor_set[0]:
+            try:
+                ind = structure.ids.index('modquad{:02d}'.format(rr[0]))
+                rotor_forces[4 * ind + rr[1]] *= ramp_factor[0]
+                #print("Rdown {} to {}".format(rr, ramp_factor[0]))
+            except:
+                raise Exception("Error ramping rotor down: {} | {}".format(
+                                                                    rr, ind))
+
+        for rr in ramp_rotor_set[1]:
+            try:
+                ind = structure.ids.index('modquad{:02d}'.format(rr[0]))
+                rotor_forces[4 * ind + rr[1]] *= ramp_factor[1]
+                #print("Rup {} to {}".format(rr, ramp_factor[1]))
+            except:
+                raise Exception("Error ramping rotor up: {} | {}".format(
+                                                                  rr, ind))
 
 
     # Motor saturation

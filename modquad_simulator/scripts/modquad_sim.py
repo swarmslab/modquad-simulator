@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python 
 import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
 import numpy as np
 from numpy import copy
 import matplotlib.pyplot as plt
@@ -21,7 +21,7 @@ from modsim.attitude import attitude_controller
 
 from modsim.datatype.structure import Structure
 
-from modsim.util.comm import publish_odom, publish_transform_stamped, publish_odom_relative, \
+from modsim.util.comm import publish_acc, publish_odom, publish_transform_stamped, publish_odom_relative, \
     publish_transform_stamped_relative
 from modsim.util.state import init_state, state_to_quadrotor
 from modquad_simulator.srv import Dislocation, DislocationResponse
@@ -59,7 +59,8 @@ fig2 = plt.figure()
 #
 #    thrust_newtons = 9.81 * F_g / 1000.  # Force in Newtons
 
-def publish_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
+# Publish ODOMETRY
+def publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
     publish_odom_relative(structure_x - xx[0], structure_y - yy[0], robot_id, main_id, odom_publishers[robot_id])
     publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], structure_y - yy[0], tf_broadcaster)
 
@@ -71,9 +72,28 @@ def publish_structure_odometry(structure, odom_publishers, tf_broadcaster):
     publish_transform_stamped(main_id, x, tf_broadcaster)
 
     # show the other robots
-    [publish_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
+    [publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
         main_id, odom_publishers, tf_broadcaster)
-        for robot_id, structure_x, structure_y in zip(ids, xx, yy)[1:]]
+        for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
+
+# Publish ACCELERATION
+def publish_acc_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, 
+				  main_id, acc_publishers, tf_broadcaster):
+	ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
+	main_id = ids[0]
+	return
+
+def publish_structure_acc(structure, state_log, tdelta):
+    vel1 = state_log[-1][3:6]
+    vel2 = state_log[-2][3:6]
+    acc = (vel2 - vel1) / tdelta
+
+    pub = rospy.Publisher('/struc' + str(structure.struc_id) + '/imu', 
+                            Imu, queue_size=1) 
+
+    # This will publish to structure topic
+    publish_acc(structure.state_vector, acc, pub)
+    return
 
 def simulate(structure, trajectory_function, 
         t_step=0.01, speed=1, figind=1, filesuffix=""):
@@ -93,6 +113,7 @@ def simulate(structure, trajectory_function,
     demo_trajectory = rospy.get_param('~demo_trajectory', True)
 
     odom_topic = rospy.get_param('~odom_topic', '/odom')  
+    imu_topic  = rospy.get_param('~imu_topic', '/imu')  
 
     tmax = structure.traj_vars.total_dist / speed
 
@@ -124,8 +145,24 @@ def simulate(structure, trajectory_function,
             rospy.Publisher('/' + id_robot + odom_topic, Odometry, queue_size=0) 
             for id_robot in structure.ids}
 
+    # Imu publisher
+    imu_publishers = {id_robot: 
+            rospy.Publisher('/' + id_robot + imu_topic, Imu, queue_size=1) 
+            for id_robot in structure.ids}
+
     # TF publisher
     tf_broadcaster = tf2_ros.TransformBroadcaster()
+
+    can_pub_imu = False
+    # # Subscribe for IMU data
+    # try:
+    #     imu_subscribers = {id_robot:
+    #         rospy.Subscriber('/' + id_robot + imu_topic, Imu, queue_size=1)
+    #         for id_robot in structure.ids}
+    # except Exception as e:
+    #     print("Issue susbcribing")
+    #     print(e)
+    #     sys.exit(1)
 
     freq = 100  # 100hz
     rate = rospy.Rate(freq)
@@ -135,7 +172,7 @@ def simulate(structure, trajectory_function,
     while t < overtime*tmax + 1.0 / freq:
         rate.sleep()
         t += 1. / freq
-        #print("{} / {}".format(t, overtime*tmax))
+        print("{} / {}".format(t, overtime*tmax))
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -156,7 +193,7 @@ def simulate(structure, trajectory_function,
         F_structure, M_structure, rotor_forces = \
                 modquad_torque_control(F_single, M_single, structure, motor_sat=True)
 
-        # Simulate
+        # Simulate, obtain new state and state derivative
         structure.state_vector = simulation_step(structure, structure.state_vector, 
 		F_structure, M_structure, 1. / freq)
 
@@ -164,6 +201,15 @@ def simulate(structure, trajectory_function,
         state_log.append(np.copy(structure.state_vector))
         forces_log.append(rotor_forces)
         ind += 1.0
+
+        # Publish the acceleration data
+        if not can_pub_imu:
+            # Need at least three log entries to get the acceleration
+            if (ind > 2):
+                can_pub_imu = True
+        else:
+            publish_structure_acc(structure, state_log, 1.0/freq)
+        
         #print(rotor_forces)
 
     traj_vars = structure.traj_vars 
@@ -258,19 +304,19 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     random.seed(0)
     num_faults = 0
     while num_faults < max_fault:
-	if rand_fault:
+        if rand_fault:
             newfault = (random.randint(0,mset.num_mod-1), random.randint(0,3))
             if newfault not in faulty_rots:
                 faulty_rots.append(newfault)
                 num_faults += 1	
         else:
             if num_faults < 4:
-	        newfault = (0, num_faults)
-	        faulty_rots.append(newfault)
+                newfault = (0, num_faults)
+                faulty_rots.append(newfault)
             else:
-	        newfault = (1, num_faults % 4)
-	        faulty_rots.append(newfault)
-	    num_faults += 1
+                newfault = (1, num_faults % 4)
+                faulty_rots.append(newfault)
+        num_faults += 1
 
     print(faulty_rots)
     for f in faulty_rots:
@@ -301,11 +347,13 @@ if __name__ == '__main__':
     #sys.exit(0)
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
-                       structure_gen.plus(3, 3), 
+                       #structure_gen.plus(2, 1), 
+                       structure_gen.rect(2, 2), 
                        #structure_gen.airplane(5,5,3),
                        waypt_gen.helix(radius=2.5, rise=3, num_circ=2),
-                       speed=1.25, test_id="3x3plus", 
-                       doreform=True, max_fault=6, rand_fault=False)
+                       #waypt_gen.line([0,0,0],[1,1,1]),
+                       speed=1.25, test_id="2x1line", 
+                       doreform=True, max_fault=2, rand_fault=False)
     print("Force used: {}".format(results[0]))
     print("RMSE Position Error: {}".format(np.mean(results[1])))
     #print("Faults: {}".format(results[3]))

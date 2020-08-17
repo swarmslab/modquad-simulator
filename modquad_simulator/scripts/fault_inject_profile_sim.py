@@ -43,11 +43,18 @@ from modquad_sched_interface.interface import convert_modset_to_struc, \
 import modquad_sched_interface.waypt_gen as waypt_gen
 import modquad_sched_interface.structure_gen as structure_gen
 
-from modquad_sched_interface.simple_scheduler import lin_assign
-#from scheduler.gsolver import gsolve
+from scheduler.gsolver import gsolve, lin_assign
 
 fig = plt.figure()
 fig2 = plt.figure()
+
+faulty_rots = []
+
+fmod = sys.argv[1]
+frot = sys.argv[2]
+
+profile_fname = \
+"/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/profiles/fprof_ranged.json"
 
 # Publish ODOMETRY
 def publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
@@ -84,6 +91,24 @@ def publish_structure_acc(structure, state_log, tdelta):
     # This will publish to structure topic
     publish_acc(structure.state_vector, acc, pub)
     return
+
+def inject_faults(mq_struc, max_faults, mset):
+    global faulty_rots
+    faulty_rots = []
+    num_faults = 0
+    while num_faults < max_faults:
+        #newfault = (random.randint(0,mset.num_mod-1), random.randint(0,3))
+        newfault = (int(fmod), int(frot))
+        if newfault not in faulty_rots:
+            faulty_rots.append(newfault)
+            num_faults += 1	
+        num_faults += 1
+
+    print("Injecting faults: {}".format(faulty_rots))
+    for f in faulty_rots:
+        mq_struc.motor_failure.append(f)
+    #faulty_rots = [(f[0]+1, f[1]) for f in faulty_rots]
+    faulty_rots = [(f[0], f[1]) for f in faulty_rots]
 
 def simulate(structure, trajectory_function, sched_mset,
         t_step=0.01, speed=1, figind=1, 
@@ -145,6 +170,7 @@ def simulate(structure, trajectory_function, sched_mset,
     tf_broadcaster = tf2_ros.TransformBroadcaster()
 
     can_pub_imu = False
+    faults_injected = False
     freq = 100  # 100hz
     rate = rospy.Rate(freq)
     t = 0
@@ -178,10 +204,15 @@ def simulate(structure, trajectory_function, sched_mset,
     # Ramp up times
     rospy.set_param("fault_det_time_interval", 5.0)
 
+    fdd_interval = rospy.get_param("fault_det_time_interval")
+
     residual = []
+
+    residual_log = np.zeros((0,2))
 
     #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
     while t < overtime*tmax + 1.0 / freq:
+        t += 1. / freq
         if ( t % 10 < 0.01 ):
             print("{:.01f} / {:.01f} - Residual = {}".format(t, overtime*tmax, residual))
 
@@ -233,7 +264,11 @@ def simulate(structure, trajectory_function, sched_mset,
                                                   M_structure, 
                                                   1.0 / freq             )
 
+        # Compute residuals for error detection
+        residual = structure.state_vector - est
+
         # Store data
+        residual_log = np.vstack((residual_log, residual[-3:-1].reshape(1,2)))
         state_log.append(np.copy(structure.state_vector))
         forces_log.append(rotor_forces)
         ind += 1.0
@@ -246,85 +281,171 @@ def simulate(structure, trajectory_function, sched_mset,
         else:
             publish_structure_acc(structure, state_log, 1.0/freq)
 
-        t += 1. / freq
+        # Inject faults
+        if ( t >= tmax/10.0 and not faults_injected ):
+            inject_faults(structure, max_faults, sched_mset)
+            faults_injected = True
+            print("Residual = {}".format(residual))
 
-    print("Timing finished at t = {:.02f}".format(t))
-    print("Final Position: {}".format(structure.state_vector[:3]))
-    traj_vars = structure.traj_vars 
-    pos_err_log /= ind
-    pos_err_log = np.sqrt(pos_err_log)
-    integral_val = np.sum(np.array(forces_log) ** 2) * (1.0 / freq)
-    #print("Final position = {}".format(structure.state_vector[:3]))
+    # Collect all errors that are large out of last ten
+    best = [0, 0]
+    mag = best[0]**2 + best[1]**2
+    entries = []
+    for entry in residual_log[-100:]:
+        new_mag = entry[0]**2 + entry[1]**2 
+        # Filter out when it does well by chance
+        if new_mag > 0.1:
+            entries.append(entry)
+    entries = np.array(entries)
 
-    if figind < 1:
-        #print("total integral={}".format(integral_val))
-        return integral_val
-    #ax.grid()
+    min_entry = [np.min(entries[:, 0]), np.min(entries[:, 1])]
+    max_entry = [np.max(entries[:, 0]), np.max(entries[:, 1])]
+    entries = np.array([min_entry, max_entry])
 
-    state_log = np.array(state_log)
-    ax.plot(state_log[:, 0], state_log[:, 1], state_log[:, 2], 
-            zdir='z', color='r', linewidth=lw)
-    ax.legend(["Planned Path", "Actual Path"])
-    plt.savefig("figs/3d_{}.pdf".format(filesuffix))
-    plt.sca(fig.gca())
+    # Take something in the middle as the profile
+    #try:
+    #    best = [round(np.mean(entries[:, 0]),2), round(np.mean(entries[:, 1]),2)]
+    #except:
+    #    import pdb
+    #    pdb.set_trace()
 
-    waypt_time_step = 1.0
-    tstate = np.arange(0, tmax + 2.0/freq, 1.0/freq)
-    twaypt = np.arange(0, tmax + waypt_time_step, waypt_time_step)
+    print("Chosen residuals:\n{}".format(entries))
 
-    # Generate legend
-    legend_vals = ["Actual path", "Desired path"]
-    # Shrink current axis's height by 10% on the bottom
-    ax2 = plt.gca()
-    box = ax.get_position()
-    ax2.set_position([box.x0, box.y0 + box.height * 0.1,
-                         box.width, box.height * 0.9])
+    # Store the residual in a file
+    pdata = {}
+    with open(profile_fname, "r") as f:
+        hashstr = structure.gen_hashstring(en_fail_motor=False)
+        try:
+            pdata = json.load(f)
+            if type(pdata) == type(""):
+                pdata = json.loads(pdata)
+            #print("Loaded from file: {}".format(pdata))
+            if hashstr not in pdata:
+                pdata[hashstr] = {}
+            modstr = "{}".format(fmod)
+            if modstr not in pdata[hashstr]:
+                pdata[hashstr][modstr] = {}
+            rotstr = "{}".format(frot)
 
-    ylabelsize = 12
-    # Plot first one so that we can do legend
-    plt.subplot(4,1,figind+0)
-    plt.plot(tstate, state_log[:, 0], color='r', linewidth=lw)
-    plt.plot(twaypt, traj_vars.waypts[:,0], alpha=alphaset, color='g', linewidth=lw)
-    plt.ylabel("X position\n(m)", size=ylabelsize)
-    plt.gca().set_ylim(xmin, xmax)
-    plt.gca().xaxis.set_ticklabels([])
-    plt.grid()
+            if rotstr not in pdata[hashstr][modstr]:
+                pdata[hashstr][modstr][rotstr] = []    
 
-    # Put a legend below current axis
-    plt.figlegend(legend_vals, loc='upper center', ncol=2)#bbox_to_anchor=(0.5,  0.95),
-                      #fancybox=True, shadow=True, ncol=2)
+            #val = [round(x, 2) for x in best]
+            
+            pdata[hashstr][modstr][rotstr] = entries.tolist()
 
-    plt.subplot(4,1,figind+1)
-    plt.plot(tstate, state_log[:, 1], color='r', linewidth=lw)
-    plt.plot(twaypt, traj_vars.waypts[:,1], alpha=alphaset, color='g', linewidth=lw)
-    plt.ylabel("Y position\n(m)", size=ylabelsize)
-    plt.gca().set_ylim(ymin, ymax)
-    plt.gca().xaxis.set_ticklabels([])
-    plt.grid()
+        except: # File is empty
+            fault_entry = {hashstr: {fmod: {frot: residual[-3:-1].tolist()}}}
+            pdata = json.dumps(fault_entry)
+            print("New json file being written")
+        #print(pdata)
+        #print(ndata)
 
-    plt.subplot(4,1,figind+2)
-    plt.plot(tstate, state_log[:, 2], color='r', linewidth=lw)
-    plt.plot(twaypt, traj_vars.waypts[:,2], alpha=alphaset, color='g', linewidth=lw)
-    plt.ylabel("Z position\n(m)", size=ylabelsize)
-    plt.gca().set_ylim(zmin, zmax)
-    plt.gca().xaxis.set_ticklabels([])
-    plt.grid()
+    with open(profile_fname, "w") as f:
+        json.dump(pdata, f, indent=4)
 
-    # sum of the squared forces
-    plt.subplot(4,1,figind+3)
-    plt.xlabel("Time (sec)")
-    plt.ylabel("Force\n(N)", size=ylabelsize)
-    #forces_log = forces_log[5:]
-    #plt.plot(tstate[5:], np.sum(np.array(forces_log) ** 2, axis=1), color='r', linewidth=lw)
-    plt.plot(tstate[5:], np.array(forces_log[5:]) ** 2, color='r', linewidth=lw)
-    plt.gca().set_ylim(0, 0.10)
-    plt.grid()
-    #strftime("%Y-%m-%d_%H:%M:%S", localtime()), 
-    plt.savefig("figs/2d_{}.pdf".format(filesuffix))
-    #print("total integral={}".format(np.sum(np.array(forces_log) ** 2) * t_step))
-    plt.clf() # Clear figures
-    plt.sca(ax)
-    plt.clf()
+    # Process the final residual - i.e. check for failed rotors via thresholding
+    # of residuals
+    #residual = structure.state_vector - est
+    #print("[{:.02f}] Residual: {}".format(t, ["{:.02f}".format(entry) for entry in residual[-3:-1]]))
+
+    # traj_vars = structure.traj_vars 
+    # pos_err_log /= ind
+    # pos_err_log = np.sqrt(pos_err_log)
+    # integral_val = np.sum(np.array(forces_log) ** 2) * (1.0 / freq)
+    # #print("Final position = {}".format(structure.state_vector[:3]))
+
+    # if figind < 1:
+    #     #print("total integral={}".format(integral_val))
+    #     return integral_val
+    # #ax.grid()
+
+    # state_log = np.array(state_log)
+    # ax.plot(state_log[:, 0], state_log[:, 1], state_log[:, 2], 
+    #         zdir='z', color='r', linewidth=lw)
+    # ax.legend(["Planned Path", "Actual Path"])
+    # plt.savefig("figs/3d_{}.pdf".format(filesuffix))
+    # plt.sca(fig.gca())
+
+    # waypt_time_step = 1.0
+    # tstate = np.arange(0, tmax + 1.0/freq, 1.0/freq)
+    # twaypt = np.arange(0, tmax + waypt_time_step, waypt_time_step)
+
+    # # Generate legend
+    # legend_vals = ["Actual path", "Desired path"]
+    # # Shrink current axis's height by 10% on the bottom
+    # ax2 = plt.gca()
+    # box = ax.get_position()
+    # ax2.set_position([box.x0, box.y0 + box.height * 0.1,
+    #                      box.width, box.height * 0.9])
+
+    # ylabelsize = 12
+    # # Plot first one so that we can do legend
+    # plt.subplot(4,1,figind+0)
+    # plt.plot(tstate, state_log[:, 0], color='r', linewidth=lw)
+    # plt.plot(twaypt, traj_vars.waypts[:,0], alpha=alphaset, color='g', linewidth=lw)
+    # plt.ylabel("X position\n(m)", size=ylabelsize)
+    # plt.gca().set_ylim(xmin, xmax)
+    # plt.gca().xaxis.set_ticklabels([])
+    # plt.grid()
+
+    # # Put a legend below current axis
+    # plt.figlegend(legend_vals, loc='upper center', ncol=2)#bbox_to_anchor=(0.5,  0.95),
+    #                   #fancybox=True, shadow=True, ncol=2)
+
+    # plt.subplot(4,1,figind+1)
+    # plt.plot(tstate, state_log[:, 1], color='r', linewidth=lw)
+    # plt.plot(twaypt, traj_vars.waypts[:,1], alpha=alphaset, color='g', linewidth=lw)
+    # plt.ylabel("Y position\n(m)", size=ylabelsize)
+    # plt.gca().set_ylim(ymin, ymax)
+    # plt.gca().xaxis.set_ticklabels([])
+    # plt.grid()
+
+    # plt.subplot(4,1,figind+2)
+    # plt.plot(tstate, state_log[:, 2], color='r', linewidth=lw)
+    # plt.plot(twaypt, traj_vars.waypts[:,2], alpha=alphaset, color='g', linewidth=lw)
+    # plt.ylabel("Z position\n(m)", size=ylabelsize)
+    # plt.gca().set_ylim(zmin, zmax)
+    # plt.gca().xaxis.set_ticklabels([])
+    # plt.grid()
+
+    # # sum of the squared forces
+    # plt.subplot(4,1,figind+3)
+    # plt.xlabel("Time (sec)")
+    # plt.ylabel("Force\n(N)", size=ylabelsize)
+    # #forces_log = forces_log[5:]
+    # #plt.plot(tstate[5:], np.sum(np.array(forces_log) ** 2, axis=1), color='r', linewidth=lw)
+    # plt.plot(tstate[5:], np.array(forces_log[5:]) ** 2, color='r', linewidth=lw)
+    # plt.gca().set_ylim(0, 0.10)
+    # plt.grid()
+    # #strftime("%Y-%m-%d_%H:%M:%S", localtime()), 
+    # plt.savefig("figs/2d_{}.pdf".format(filesuffix))
+    # #print("total integral={}".format(np.sum(np.array(forces_log) ** 2) * t_step))
+    # plt.clf() # Clear figures
+    # plt.sca(ax)
+    # plt.clf()
+
+
+    # # Plot the residuals
+    # plt.figure()
+    # plt.plot(residual_log[:, 0], 'b.' , linewidth=3.0)
+    # plt.plot(residual_log[:, 1], 'r--', linewidth=2.5)
+    # plt.savefig("figs/residual_{}.pdf".format(filesuffix))
+    # plt.clf()
+
+    # # Plot the ang vel over time
+    # plt.figure
+    # plt.plot(tstate, state_log[:, -3], 'b-', label=r"$\dot{\phi}$")
+    # plt.plot(tstate, state_log[:, -3] - residual_log[:, 0], 'b--', label=r"$\hat{\dot{\phi}}$")
+    # plt.plot(tstate, state_log[:, -2], 'r-', label=r"$\dot{\theta}$")
+    # plt.plot(tstate, state_log[:, -2] - residual_log[:, 1], 'r--', label=r"$\hat{\dot{\theta}}$")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Ang Vel")
+    # plt.legend()
+    # plt.savefig("figs/angvel_{}.pdf".format(filesuffix))
+    # plt.clf()
+
+    integral_val = -1
     return integral_val, pos_err_log
 
 def test_shape_with_waypts(mset, wayptset, speed=1, test_id="", 
@@ -336,6 +457,7 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     state_vector = init_state(loc, 0)
 
     # Generate the structure
+    #gsolve(mset, waypts=traj_vars.waypts)
     lin_assign(mset)
     struc1 = convert_modset_to_struc(mset)
     struc1.state_vector = state_vector
@@ -346,16 +468,10 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
     #print("Mset:\n{}".format(mset.pi))
 
-    if doreform:
-        forces, pos_err = simulate(struc1, trajectory_function, mset, 
-                figind=1, speed=speed, 
-                filesuffix="{}_f{}_reform".format(test_id, max_fault), 
-                max_faults=max_fault)
-    else:
-        forces, pos_err = simulate(struc1, trajectory_function, mset,
-                figind=1, speed=speed, 
-                filesuffix="{}_f{}_noreform".format(test_id, max_fault),
-                max_faults=max_fault)
+    forces, pos_err = simulate(struc1, trajectory_function, mset, 
+            figind=1, speed=speed, 
+            filesuffix="{}_m{}r{}_profile".format(test_id, fmod, frot), 
+            max_faults=max_fault)
 
     #print(struc1.ids)
     #print(struc1.xx)
@@ -368,21 +484,21 @@ if __name__ == '__main__':
     #sys.exit(0)
     rospy.set_param("fdd_group_type", "log4")
     random.seed(1)
-    p = 5
+    spd = 5.0
     results = test_shape_with_waypts(
-                       #structure_gen.zero(4, 4), 
-                       #structure_gen.plus(2, 1), 
-                       structure_gen.rect(4, 4), 
+                       #structure_gen.rect(5, 5), 
+                       #structure_gen.plus(3, 3), 
+                       structure_gen.zero(4, 4), 
                        #structure_gen.airplane(5,5,3),
-                       #waypt_gen.helix(radius=2.5, rise=3, num_circ=2),
-                       waypt_gen.waypt_set([[0,0,0],[0,0,1],
-                                            [p,0,1],[p,p,1],
-                                            [0,p,1],[0,0,1],
-                                            [0,0,0]        ]
-                                          ),
-                       speed=2.5, test_id="controls", 
+                       waypt_gen.helix(radius=2.5, rise=1, num_circ=1),
+                       #waypt_gen.line([0,0,0],[5,-5,5]),
+                       #waypt_gen.zigzag_xy(10, 5, num_osc=8.0, start_pt=[0,0,0]),
+                       speed=spd, 
+                       test_id="4x4zero_2.5x1x1helix_spd{}_".format(spd), 
+                       #test_id="5x5sq_(0,0,0)-(5,-5,5)_spd{}_".format(spd), 
                        doreform=True, max_fault=1, rand_fault=False)
     #print("Force used: {}".format(results[0]))
     #print("RMSE Position Error: {}".format(np.mean(results[1])))
     #print("Faults: {}".format(faulty_rots))
     print("---------------------------------------------------------------")
+    print("Sim complete!")

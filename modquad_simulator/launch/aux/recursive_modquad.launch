@@ -1,9 +1,14 @@
 <launch>
+    <!--Number of robots-->
+    <arg name="nr" default="1"/>
 
-    <arg name="model"/>
+   	<arg name="model" value="modquad$(arg nr)" if="$(eval arg('nr') > 10)"/>
+  	<arg name="model" value="modquad0$(arg nr)" if="$(eval -1 * arg('nr') > -11)"/>
+
     <arg name="config_path"/>
     <arg name="uri" default="radio://0/100/2M/0xE7E7E7E7E7"/>
     <arg name="cmd_frequency" default="100"/>
+
     <!--Initial location-->
     <arg name="init_x" default="0"/>
     <arg name="init_y" default="0"/>
@@ -14,13 +19,6 @@
     <arg name="color_a" default="1.0"/>
 
     <group ns="$(arg model)">
-
-        <!-- Simulator -->
-<!--        <node pkg="modquad_simulator" type="modquad_sim.py" name="modquad_sim" output="screen">-->
-<!--            <param name="~robot_id" value="$(arg model)"/>-->
-<!--            <param name="~init_x" value="$(arg init_x)" type="double"/>-->
-<!--            <param name="~init_y" value="$(arg init_y)" type="double"/>-->
-<!--        </node>-->
 
         <!--position controller - what is the position controller in controller.py then? -->
         <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
@@ -43,6 +41,18 @@
             <param name="color/a" value="$(arg color_a)"/>
             <remap from="~input" to="odom"/>
         </node>
-
     </group>
+
+    <!--Recursively launch next module-->
+    <include file="$(find modquad_simulator)/launch/aux/recursive_modquad.launch" if="$(eval arg('nr') - 1 > 0)">
+		<arg name="nr" value="$(eval arg('nr') - 1)"/>
+
+        <arg name="init_x" default="0.0"/>
+        <arg name="init_y" default="0.0"/>
+
+        <arg name="color_r" default="0.0"/>
+        <arg name="color_g" default="1.0"/>
+        <arg name="color_b" default="0.0"/>
+    </include> 
+
 </launch>
