@@ -42,3 +42,6 @@ maxangle = 40 * pi / 180  # you can specify the maximum commanded angle here
 # FIXME the maximum force should be 4*60g
 maxF = 2.5 * m * g  # left these untouched from the nano plus
 minF = 0.0 * m * g  # left these untouched from the nano plus
+
+# km/kf
+ctau = 0.0008

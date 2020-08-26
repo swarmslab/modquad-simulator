@@ -10,7 +10,7 @@ def init_state(pos, yaw):
     # INIT_STATE Initialize 13 x 1 state vector
     s = np.zeros(13)
 
-    # Euler: phi, theta, psi
+    # Qauternion: qw, qx, qy, qz
     qw, qx, qy, qz = trans.euler2quat(0, 0, yaw)
 
     s[:3] = pos

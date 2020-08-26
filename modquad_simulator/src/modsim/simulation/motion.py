@@ -1,5 +1,6 @@
 from modsim import params
 from modsim.util.quaternion import quaternion_to_matrix, matrix_to_quaternion, RPYtoRot_ZXY
+from transforms3d import quaternions
 import numpy as np
 
 
@@ -8,7 +9,7 @@ def state_derivative(state_vector, F, M, structure):
     Calculate the derivative of the state vector. This is the function that needs to be integrated to know the next
     state of the robot.
     :param t: time
-    :param state_vector: 13 x 1, state vector = [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]
+    :param state_vector: 13 x 1, state vector = [pos(0:3), vel(3:6), qx, qy, qz, qw, omega(10:13)]
     :param F: thrust input for a single robot
     :param M: 3 x 1, moments output from controller (only used in simulation)
     :return: sdot: 13 x 1, derivative of state vector s
@@ -18,8 +19,9 @@ def state_derivative(state_vector, F, M, structure):
     [xdot, ydot, zdot] = state_vector[3:6]  # Linear velocity
     quat = state_vector[6:10]  # orientation
     [qX, qY, qZ, qW] = quat
-    bRw = quaternion_to_matrix(quat)
-    wRb = bRw.T  # Orientation in matrix form
+    # bRw = quaternion_to_matrix(quat)
+    # wRb = bRw.T  # Orientation in matrix form
+    wRb = quaternions.quat2mat(np.array([qW, qX, qY, qZ]))
     omega = state_vector[10:]  # angular velocity
     [p, q, r] = omega
 
@@ -39,7 +41,7 @@ def state_derivative(state_vector, F, M, structure):
 
     # Acceleration
     gravity_vector = np.array([0, 0, structure.n * params.mass * params.grav])
-    linear_acceleration = (np.dot(wRb, [0, 0, F]) - gravity_vector) / params.mass
+    linear_acceleration = (wRb.dot(F) - gravity_vector) / params.mass
 
     ## Assemble the derivative of the state
     sdot = np.zeros(13)

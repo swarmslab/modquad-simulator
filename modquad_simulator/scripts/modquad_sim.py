@@ -7,11 +7,11 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import numpy as np
 
-from modsim.controller import position_controller, modquad_torque_control
+from modsim.controller import geo_position_controller, modquad_torque_control
 from modsim.trajectory import circular_trajectory, min_snap_trajectory
 
 from modsim import params
-from modsim.attitude import attitude_controller
+from modsim.attitude import geo_attitude_controller
 
 from modsim.datatype.structure import Structure
 
@@ -20,6 +20,7 @@ from modsim.util.comm import publish_odom, publish_transform_stamped, publish_od
 from modsim.util.state import init_state, state_to_quadrotor
 from modquad_simulator.srv import Dislocation, DislocationResponse
 from modsim.simulation.ode_integrator import simulation_step
+from modsim.datatype.quad import Quad
 
 # Control Input
 thrust_newtons, roll, pitch, yaw = 0., 0., 0., 0.
@@ -82,14 +83,17 @@ def simulate():
     rospy.Service('dislocate_robot', Dislocation, dislocate)
 
     # TODO read structure and create a service to change it.
-    structure4 = Structure(ids=['modquad01', 'modquad02'],
-                           xx=[0, params.cage_width, 0, params.cage_width], yy=[0, 0, params.cage_width, params.cage_width],
-                           motor_failure=[])
-    structure4fail = Structure(ids=['modquad01', 'modquad02'],
+    structure4 = Structure(ids=['modquad01', 'modquad02', 'modquad03', 'modquad04'],
+                           quads=[Quad(), Quad(), Quad(), Quad()],
                            xx=[0, params.cage_width, 0, params.cage_width],
                            yy=[0, 0, params.cage_width, params.cage_width],
-                           motor_failure=[(1, 0)])
-    structure1 = Structure(ids=[robot_id], xx=[0], yy=[0])
+                           motor_failure=[])
+    structure4fail = Structure(ids=['modquad01', 'modquad02', 'modquad03', 'modquad04'],
+                               quads=[Quad(), Quad(), Quad(), Quad()],
+                               xx=[0, params.cage_width, 0, params.cage_width],
+                               yy=[0, 0, params.cage_width, params.cage_width],
+                               motor_failure=[(1, 0)])
+    structure1 = Structure(ids=[robot_id], quads=[Quad()], xx=[0], yy=[0])
     structure = structure1
 
     # Subscribe to control input
@@ -127,7 +131,9 @@ def simulate():
         # Publish odometry
         publish_structure_odometry(structure, state_vector, odom_publishers, tf_broadcaster)
 
-        if demo_trajectory:
+        f_des = params.mass * params.grav * np.array([0, 0, 1])
+        desired_state = circular_trajectory(t % 10, 10)
+        # if demo_trajectory:
             # F, M = control_output( state_vector,
             #         min_snap_trajectory(t % 10, 30, traj_vars), control_handle)
             # F, M = control_output( state_vector,
@@ -136,13 +142,14 @@ def simulate():
             #                       circular_trajectory(t % 10, 10), control_handle)
 
             # Overwrite the control input with the demo trajectory
-            [thrust_newtons, roll, pitch, yaw] = position_controller(state_vector, circular_trajectory(t % 10, 10))
+        f_des = geo_position_controller(state_vector, desired_state)
 
+        print demo_trajectory, f_des
         # Control output based on crazyflie input
-        F_single, M_single = attitude_controller((thrust_newtons, roll, pitch, yaw), state_vector)
+        tau_des = geo_attitude_controller(f_des, state_vector, desired_state)
 
         # Control of Moments and thrust
-        F_structure, M_structure, rotor_forces = modquad_torque_control(F_single, M_single, structure, motor_sat=False)
+        F_structure, M_structure, rotor_forces = modquad_torque_control(f_des, tau_des, structure, state_vector)
 
         # Simulate
         state_vector = simulation_step(structure, state_vector, F_structure, M_structure, 1. / freq)

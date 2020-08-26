@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from time import sleep
 
-from modsim.attitude import attitude_controller
-from modsim.controller import position_controller, modquad_torque_control
+from modsim.attitude import geo_attitude_controller
+from modsim.controller import geo_position_controller, modquad_torque_control
 from modsim.trajectory import circular_trajectory
 
 from modsim.util.state import init_state
+from modsim.datatype.quad import Quad
 
 import numpy as np
 
@@ -33,12 +34,12 @@ def simulate(structure, trajectory_function, t_step=0.005, tmax=5, loc=[1., .0, 
         # print t, state_vector
         ##### Trajectory
         desired_state = trajectory_function(t % 10, tmax)
-        # Position controller for a single robot
-        [thrust_newtons, roll, pitch, yaw] = position_controller(state_vector, desired_state)
-        F, M = attitude_controller((thrust_newtons, roll, pitch, yaw), state_vector)
+        # Controller for a single robot
+        f_des = geo_position_controller(state_vector, desired_state)
+        tau_des = geo_attitude_controller(f_des, state_vector, desired_state)
 
         # Structure control
-        F_structure, M_structure, rotor_forces = modquad_torque_control(F, M, structure)
+        F_structure, M_structure, rotor_forces = modquad_torque_control(f_des, tau_des, state_vector, structure)
         forces_log.append(rotor_forces)
 
         # Simulate
@@ -64,12 +65,13 @@ def simulate(structure, trajectory_function, t_step=0.005, tmax=5, loc=[1., .0, 
 
 
 if __name__ == '__main__':
-    structure = Structure(ids=['modquad01', 'modquad02'], xx=[0, params.cage_width], yy=[0, 0], motor_failure=[])
+    structure = Structure(ids=['modquad01', 'modquad02'], quads=[Quad()]*2, xx=[0, params.cage_width], yy=[0, 0], motor_failure=[])
 
     # w = params.cage_width
     # structure = Structure(ids=['1', '2', '3', '4'], xx=[0., 0., -w, -w], yy=[0., -w, -w, 0.])
     # structure = Structure()
-    structure4 = Structure(ids=['modquad01', 'modquad02'],
+    structure4 = Structure(ids=['modquad01', 'modquad02', 'modquad03', 'modquad04'],
+                           quads=[Quad(), Quad(), Quad(), Quad()],
                            xx=[0, params.cage_width, 0, params.cage_width],
                            yy=[0, 0, params.cage_width, params.cage_width],
                            motor_failure=[(1, 2)])
