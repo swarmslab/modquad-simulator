@@ -1,8 +1,35 @@
 <launch>
+
+    <arg name="uri1" default="radio://0/80/2M/E7E7E7E7E7" />
+  	<include file="$(find crazyflie_driver)/launch/crazyflie_server.launch" />
+
     <param name="num_robots" value="5" type="int"/>
 
     <arg name="launch_path" value="$(find modquad_simulator)/launch/aux/"/>
 
+
+  <group ns="cf1">
+	
+	  <!--<param name="crazyflie/pid_rate/yaw_kp" value="200"/>-->
+	
+	  <node pkg="crazyflie_driver" type="crazyflie_add" name="crazyflie_add" output="screen">
+	  		<param name="uri" value="$(arg uri1)" />
+	    	<param name="tf_prefix" value="cf1" />
+	    	<param name="enable_logging" value="False" />
+	
+	    	<!--
+	    	  <rosparam>
+	    	    genericLogTopics: ["log1"]
+	    	    genericLogTopicFrequencies: [10]
+	    	    genericLogTopic_log1_Variables: ["ctrltarget.yaw", "stabilizer.yaw"]
+	    	  </rosparam> 
+	    	-->
+	
+	  </node>
+	
+	  <!-- <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot_x" args="log1/values[0] log1/values[1]"/> -->
+	
+	</group>
     <include file="$(arg launch_path)/modquad.launch">
         <arg name="model" value="modquad01"/>
 
@@ -75,8 +102,5 @@
 
     <node pkg="tf2_ros" type="static_transform_publisher" name="link1_broadcaster"
           args="1 0 0 0 0 0 1 world link1"/>
-
-  <!-- run vicon bridge -->
-  <include file="$(find vicon_bridge)/launch/vicon.launch"/>
 
 </launch>

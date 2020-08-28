@@ -60,7 +60,7 @@ def position_controller(structure, desired_state):
         # zi  =    1.5 
         xyp =  15.0 
         xyd =  30.0 
-        xyi =   0.00 
+        xyi =   0.01 
         zp  =  15.0
         zd  =  18.0 
         zi  =   2.5 

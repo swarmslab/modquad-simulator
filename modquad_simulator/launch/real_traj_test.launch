@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="uri1" default="radio://0/80/2M/E7E7E7E7E7" />
+
+  <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch" />
+
+  <group ns="cf1">
+	
+	  <node pkg="crazyflie_driver" type="crazyflie_add" name="crazyflie_add" output="screen">
+	  		<param name="uri" value="$(arg uri1)" />
+	    	<param name="tf_prefix" value="cf1" />
+	    	<param name="enable_logging" value="True" />
+	
+	  </node>
+	
+	</group>
+
+	<node name="crazyflie_const_thrust" pkg="modquad_simulator" 
+			type="real_traj_test.py" output="screen">
+	</node>
+
+</launch>

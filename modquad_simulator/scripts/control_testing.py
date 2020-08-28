@@ -22,8 +22,16 @@ from modsim.attitude import attitude_controller
 
 from modsim.datatype.structure import Structure
 
-from modsim.util.comm import publish_acc, publish_odom, publish_transform_stamped, publish_odom_relative, \
-    publish_transform_stamped_relative
+from modsim.util.comm import publish_acc, \
+                             publish_odom, \
+                             publish_transform_stamped, \
+                             publish_odom_relative, \
+                             publish_transform_stamped_relative, \
+                             publish_odom_for_attached_mods, \
+                             publish_structure_odometry, \
+                             publish_acc_for_attached_mods, \
+                             publish_structure_acc
+
 from modsim.util.state import init_state, state_to_quadrotor
 from modquad_simulator.srv import Dislocation, DislocationResponse
 from modsim.simulation.ode_integrator import simulation_step
@@ -48,42 +56,6 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 
 fig = plt.figure()
 fig2 = plt.figure()
-
-# Publish ODOMETRY
-def publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, main_id, odom_publishers, tf_broadcaster):
-    publish_odom_relative(structure_x - xx[0], structure_y - yy[0], robot_id, main_id, odom_publishers[robot_id])
-    publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], structure_y - yy[0], tf_broadcaster)
-
-def publish_structure_odometry(structure, odom_publishers, tf_broadcaster):
-    ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
-
-    main_id = ids[0]
-    publish_odom(x, odom_publishers[main_id])
-    publish_transform_stamped(main_id, x, tf_broadcaster)
-
-    # show the other robots
-    [publish_odom_for_attached_mods(robot_id, structure_x, structure_y, xx, yy,
-        main_id, odom_publishers, tf_broadcaster)
-        for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]]
-
-# Publish ACCELERATION
-def publish_acc_for_attached_mods(robot_id, structure_x, structure_y, xx, yy, 
-				  main_id, acc_publishers, tf_broadcaster):
-	ids, xx, yy, x = structure.ids, structure.xx, structure.yy, structure.state_vector
-	main_id = ids[0]
-	return
-
-def publish_structure_acc(structure, state_log, tdelta):
-    vel1 = state_log[-1][3:6]
-    vel2 = state_log[-2][3:6]
-    acc = (vel2 - vel1) / tdelta
-
-    pub = rospy.Publisher('/struc' + str(structure.struc_id) + '/imu', 
-                            Imu, queue_size=1) 
-
-    # This will publish to structure topic
-    publish_acc(structure.state_vector, acc, pub)
-    return
 
 def simulate(structure, trajectory_function, sched_mset,
         t_step=0.01, speed=1, figind=1, 
@@ -189,6 +161,7 @@ def simulate(structure, trajectory_function, sched_mset,
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
+
         if demo_trajectory:
             # Overwrite the control input with the demo trajectory
             [thrust_newtons, roll, pitch, yaw] = \
@@ -346,16 +319,10 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
     #print("Mset:\n{}".format(mset.pi))
 
-    if doreform:
-        forces, pos_err = simulate(struc1, trajectory_function, mset, 
-                figind=1, speed=speed, 
-                filesuffix="{}_f{}_reform".format(test_id, max_fault), 
-                max_faults=max_fault)
-    else:
-        forces, pos_err = simulate(struc1, trajectory_function, mset,
-                figind=1, speed=speed, 
-                filesuffix="{}_f{}_noreform".format(test_id, max_fault),
-                max_faults=max_fault)
+    forces, pos_err = simulate(struc1, trajectory_function, mset, 
+            figind=1, speed=speed, 
+            filesuffix="{}_f{}".format(test_id, max_fault), 
+            max_faults=max_fault)
 
     #print(struc1.ids)
     #print(struc1.xx)
@@ -372,14 +339,14 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(4, 4), 
+                       structure_gen.rect(2, 1), 
                        #structure_gen.airplane(5,5,3),
-                       #waypt_gen.helix(radius=2.5, rise=3, num_circ=2),
-                       waypt_gen.waypt_set([[0,0,0],[0,0,1],
-                                            [p,0,1],[p,p,1],
-                                            [0,p,1],[0,0,1],
-                                            [0,0,0]        ]
-                                          ),
+                       waypt_gen.helix(radius=2.5, rise=3, num_circ=2),
+                       #waypt_gen.waypt_set([[0,0,0],[0,0,1],
+                       #                     [p,0,1],[p,p,1],
+                       #                     [0,p,1],[0,0,1],
+                       #                     [0,0,0]        ]
+                       #                   ),
                        speed=2.5, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     #print("Force used: {}".format(results[0]))
