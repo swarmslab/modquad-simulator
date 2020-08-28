@@ -84,7 +84,7 @@ def simulate():
 
     # TODO read structure and create a service to change it.
     structure4 = Structure(ids=['modquad01', 'modquad02', 'modquad03', 'modquad04'],
-                           quads=[Quad(), Quad(), Quad(), Quad()],
+                           quads=[Quad(np.pi/10), Quad(-np.pi/10, np.pi/8), Quad(), Quad()],
                            xx=[0, params.cage_width, 0, params.cage_width],
                            yy=[0, 0, params.cage_width, params.cage_width],
                            motor_failure=[])
@@ -93,8 +93,8 @@ def simulate():
                                xx=[0, params.cage_width, 0, params.cage_width],
                                yy=[0, 0, params.cage_width, params.cage_width],
                                motor_failure=[(1, 0)])
-    structure1 = Structure(ids=[robot_id], quads=[Quad()], xx=[0], yy=[0])
-    structure = structure1
+    structure1 = Structure(ids=[robot_id], quads=[Quad(np.pi/10, -np.pi/8)], xx=[0], yy=[0])
+    structure = structure4
 
     # Subscribe to control input
     rospy.Subscriber('/' + robot_id + '/cmd_vel', Twist, control_input_listener)
@@ -144,7 +144,7 @@ def simulate():
             # Overwrite the control input with the demo trajectory
         f_des = geo_position_controller(state_vector, desired_state)
 
-        print demo_trajectory, f_des
+        # print demo_trajectory, f_des
         # Control output based on crazyflie input
         tau_des = geo_attitude_controller(f_des, state_vector, desired_state)
 

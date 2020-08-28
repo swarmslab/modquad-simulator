@@ -187,5 +187,6 @@ def modquad_torque_control(F, tau, structure, state_vector, motor_sat=False):
         rotor_forces[rotor_forces > params.maxF / 4] = params.maxF / 4
         rotor_forces[rotor_forces < params.minF / 4] = params.minF / 4
 
-    # From prop forces to total moments. Equation (1) of the modquad paper (ICRA 18)
-    return F, tau, rotor_forces
+    # From prop forces to total wrench
+    w = structure.A.dot(rotor_forces)
+    return w[0:3], w[3:], rotor_forces

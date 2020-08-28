@@ -62,3 +62,4 @@ class Structure:
 
         self.A = np.concatenate(A_list, axis=1)
         self.rankA = np.linalg.matrix_rank(self.A)
+        print self.rankA

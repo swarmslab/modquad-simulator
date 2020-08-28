@@ -32,7 +32,7 @@ def geo_attitude_controller(f_des, state_vector, desired_state):
     R = quaternions.quat2mat(quat)
     omega = np.array(state_vector[10:])
 
-    kp, kd, ki = 1.43e-5 * 250, 1.43e-5 * 60, .0002
+    kp, kd, ki = 1.43e-5 * 1200, 1.43e-5 * 540, .00001
 
     # desired direction in SO(3)
     # Eq 6a - 6e
