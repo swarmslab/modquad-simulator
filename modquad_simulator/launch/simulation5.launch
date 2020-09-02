@@ -65,8 +65,12 @@
 
     <!--Robot Visualization-->
     <!--<node pkg="modquad_simulator" type="visualizer.py" name="visual"/>-->
+
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/five-robots.rviz" required="true"/>
     <param name="num_robots" value="5" type="int"/>
+
+    <!--<node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/four-robots.rviz" required="true"/>
+	-->
 
     <!--<node pkg="dock_manager" type="docking_detector.py" name="docking_det"/>-->
     <!--<node pkg="modquad_simulator" type="docking_sim.py" name="docking_sim"/>-->
@@ -75,6 +79,9 @@
 
     <node pkg="tf2_ros" type="static_transform_publisher" name="link1_broadcaster"
           args="1 0 0 0 0 0 1 world link1"/>
+
+  <!-- run vicon bridge -->
+  <include file="$(find vicon_bridge)/launch/vicon.launch"/>
 
   <!-- run vicon bridge -->
   <include file="$(find vicon_bridge)/launch/vicon.launch"/>

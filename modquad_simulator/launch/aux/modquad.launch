@@ -31,6 +31,14 @@
                  file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
        </node>
 
+        <!--position controller-->
+<!-- Old setup
+        <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
+            <param name="frame" value="$(arg model)"/><param name="world" value="worldFrame"/>
+            <rosparam command="load" file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
+        </node>
+-->
+
         <!--mesh publisher for rviz visualization-->
         <node pkg="mesh_visualization"
               type="mesh_visualization"
