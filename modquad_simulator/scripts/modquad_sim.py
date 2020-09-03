@@ -84,17 +84,30 @@ def simulate():
 
     # TODO read structure and create a service to change it.
     structure4 = Structure(ids=['modquad01', 'modquad02', 'modquad03', 'modquad04'],
-                           quads=[Quad(np.pi/10), Quad(-np.pi/10, np.pi/8), Quad(), Quad()],
-                           xx=[0, params.cage_width, 0, params.cage_width],
-                           yy=[0, 0, params.cage_width, params.cage_width],
+                           quads=[Quad(np.pi/4, -np.pi/4), Quad(-np.pi/2), Quad(), Quad()],
+                           # quads=[Quad(0, np.pi / 8), Quad(0, np.pi / 8), Quad(0, np.pi / 8),
+                           #        Quad(0, np.pi / 8)],
+                           # quads=[Quad(-np.pi / 8, np.pi / 8), Quad(np.pi / 8, np.pi / 8), Quad(-np.pi / 8, np.pi / 8),
+                           #        Quad(np.pi / 8, np.pi / 8)],
+                           # xx=[0, params.cage_width, 0, params.cage_width],
+                           # yy=[0, 0, params.cage_width, params.cage_width],
+                           xx=[params.cage_width / 2., params.cage_width / 2., -params.cage_width / 2.,
+                               -params.cage_width / 2.],
+                           yy=[params.cage_width / 2., -params.cage_width / 2., -params.cage_width / 2.,
+                               params.cage_width / 2.],
                            motor_failure=[])
     structure4fail = Structure(ids=['modquad01', 'modquad02', 'modquad03', 'modquad04'],
                                quads=[Quad(), Quad(), Quad(), Quad()],
                                xx=[0, params.cage_width, 0, params.cage_width],
                                yy=[0, 0, params.cage_width, params.cage_width],
                                motor_failure=[(1, 0)])
-    structure1 = Structure(ids=[robot_id], quads=[Quad(np.pi/10, -np.pi/8)], xx=[0], yy=[0])
-    structure = structure4
+    structure3 = Structure(ids=['modquad01', 'modquad02', 'modquad03'],
+                           quads=[Quad(np.pi/8), Quad(np.pi/6), Quad()],
+                           xx=[0, params.cage_width, 0],
+                           yy=[0, 0, params.cage_width],
+                           motor_failure=[])
+    structure1 = Structure(ids=[robot_id], quads=[Quad(np.pi/8, 0)], xx=[0], yy=[0])
+    structure = structure1
 
     # Subscribe to control input
     rospy.Subscriber('/' + robot_id + '/cmd_vel', Twist, control_input_listener)
@@ -133,7 +146,8 @@ def simulate():
 
         f_des = params.mass * params.grav * np.array([0, 0, 1])
         desired_state = circular_trajectory(t % 10, 10)
-        # if demo_trajectory:
+        # desired_state[3] = np.pi/3
+        if demo_trajectory:
             # F, M = control_output( state_vector,
             #         min_snap_trajectory(t % 10, 30, traj_vars), control_handle)
             # F, M = control_output( state_vector,
@@ -142,18 +156,18 @@ def simulate():
             #                       circular_trajectory(t % 10, 10), control_handle)
 
             # Overwrite the control input with the demo trajectory
-        f_des = geo_position_controller(state_vector, desired_state)
+            f_des = geo_position_controller(structure, state_vector, desired_state)
 
-        # print demo_trajectory, f_des
-        # Control output based on crazyflie input
-        tau_des = geo_attitude_controller(f_des, state_vector, desired_state)
+            # print demo_trajectory, f_des
+            # Control output based on crazyflie input
+            tau_des = geo_attitude_controller(structure, f_des, state_vector, desired_state)
 
-        # Control of Moments and thrust
-        F_structure, M_structure, rotor_forces = modquad_torque_control(f_des, tau_des, structure, state_vector)
+            # Control of Moments and thrust
+            F_structure, M_structure, rotor_forces = modquad_torque_control(f_des, tau_des, structure, state_vector)
 
-        # Simulate
-        state_vector = simulation_step(structure, state_vector, F_structure, M_structure, 1. / freq)
-        # state_vector[-1] = 0.01-state_vector[-1]
+            # Simulate
+            state_vector = simulation_step(structure, state_vector, F_structure, M_structure, 1. / freq)
+            # state_vector[-1] = 0.01-state_vector[-1]
 
 
 if __name__ == '__main__':

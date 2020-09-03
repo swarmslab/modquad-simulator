@@ -5,7 +5,7 @@
 
     <include file="$(arg launch_path)/modquad.launch">
         <arg name="model" value="modquad01"/>
-        <arg name="demo_trajectory" value="false"/>
+        <arg name="demo_trajectory" value="true"/>
 
         <arg name="init_x" default="0.0"/>
         <arg name="init_y" default="0.0"/>
@@ -15,6 +15,45 @@
         <arg name="color_g" default="0.0"/>
         <arg name="color_b" default="0.0"/>
     </include>
+
+<!--    <include file="$(arg launch_path)/modquad.launch">-->
+<!--        <arg name="model" value="modquad02"/>-->
+<!--        <arg name="demo_trajectory" value="true"/>-->
+
+<!--        <arg name="init_x" default="0.0"/>-->
+<!--        <arg name="init_y" default="0.0"/>-->
+
+
+<!--        <arg name="color_r" default="0.0"/>-->
+<!--        <arg name="color_g" default="1.0"/>-->
+<!--        <arg name="color_b" default="1.0"/>-->
+<!--    </include>-->
+
+<!--    <include file="$(arg launch_path)/modquad.launch">-->
+<!--        <arg name="model" value="modquad03"/>-->
+<!--        <arg name="demo_trajectory" value="true"/>-->
+
+<!--        <arg name="init_x" default="0.0"/>-->
+<!--        <arg name="init_y" default="0.0"/>-->
+
+
+<!--        <arg name="color_r" default="1.0"/>-->
+<!--        <arg name="color_g" default="0.0"/>-->
+<!--        <arg name="color_b" default="1.0"/>-->
+<!--    </include>-->
+
+<!--    <include file="$(arg launch_path)/modquad.launch">-->
+<!--        <arg name="model" value="modquad04"/>-->
+<!--        <arg name="demo_trajectory" value="true"/>-->
+
+<!--        <arg name="init_x" default="0.0"/>-->
+<!--        <arg name="init_y" default="0.0"/>-->
+
+
+<!--        <arg name="color_r" default="1.0"/>-->
+<!--        <arg name="color_g" default="1.0"/>-->
+<!--        <arg name="color_b" default="0.0"/>-->
+<!--    </include>-->
 
 
 

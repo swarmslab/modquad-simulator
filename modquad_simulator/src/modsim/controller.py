@@ -10,7 +10,7 @@ from modsim.util.linearalg import hat_map
 accumulated_error = np.array([0., 0., 0.])
 
 
-def geo_position_controller(state_vector, desired_state):
+def geo_position_controller(structure, state_vector, desired_state):
     """
     The position part of a geometric controller
     :param state_vector: [pos(0:3), vel(3:6), qx, qy, qz, qw, omega(10:13)]
@@ -30,17 +30,18 @@ def geo_position_controller(state_vector, desired_state):
     # omega = np.array(state_vector[11:])
 
     # constants
-    m = params.mass
+    m = structure.n * params.mass
     g = params.grav
     e3 = np.array([0, 0, 1])
 
-    kp1_u, kd1_u, ki1_u = 10., 71., .0
-    kp2_u, kd2_u, ki2_u = 10., 71., .0
-    kp3_u, kd3_u, ki3_u = 10., 48., .0
+    kp1_u, kd1_u, ki1_u = 15., 71., .003
+    kp2_u, kd2_u, ki2_u = 15., 71., .003
+    kp3_u, kd3_u, ki3_u = 15., 48., .003
 
     # Error
     # Eq 5a - 5b
     pos_error = pos_des - pos
+    print "pos_error = ", pos_error
     vel_error = vel_des - vel
     accumulated_error += pos_error
     # print pos_error
@@ -55,6 +56,7 @@ def geo_position_controller(state_vector, desired_state):
 
     # Thrust
     thrust = m * r_acc_des
+    print "thrust_d: ", thrust
 
     # desired thrust vector
     return thrust
@@ -146,9 +148,11 @@ def modquad_torque_control(F, tau, structure, state_vector, motor_sat=False):
     # A = [[0.25, sy * .25 / L, -sx * .25 / L] for sx, sy in zip(sign_rx, sign_ry)]
     #
     # rotor_forces = np.dot(A, [F, M[0], M[1]])  # Not using moment about Z-axis for limits
-    rotor_forces = None
     # record the rank of the A matrix of the structure
     rankA = structure.rankA
+    # get major and minor axis
+    majorR = structure.majorR
+    minorR = structure.minorR
     # current rotation matrix
     quat = np.array([state_vector[9], state_vector[6], state_vector[7], state_vector[8]])
     R = quaternions.quat2mat(quat)
@@ -157,25 +161,33 @@ def modquad_torque_control(F, tau, structure, state_vector, motor_sat=False):
     A_tau = structure.A[3:, :]
     if rankA == 4:
         # rank(A)=4: slightly modified SE3 controller
-        # get a pivot tilting angle
-        Rp_s = structure.quads[0].getRp()
         # desired force magnitude
         # Eq 8a
-        f = F.dot(R.dot(Rp_s.dot(e3)))
+        f = F.dot(R.dot(majorR.dot(e3)))
         # determine the motor dynamics
-        f_row = np.zeros([1, 4*structure.n])
+        f_row = np.ones([1, 4*structure.n])
         for i in range(structure.n):
-            if not np.allclose(Rp_s, np.eye(3)) and \
-                    np.allclose(structure.quads[i].getRp().dot(Rp_s), np.eye(3)):
+            if np.allclose(structure.quads[i].getRp().dot(majorR), np.eye(3)):
                 f_row[:, 4*i:4*(i+1)] = -1
-            elif np.allclose(structure.quads[i].getRp(), Rp_s):
-                f_row[:, 4*i:4*(i+1)] = 1
-        # print f_row, A_tau
+
         A_motor = np.concatenate((f_row, A_tau))
         # pseudo-inverse to optimize over energy consumption
         rotor_forces = np.linalg.pinv(A_motor).dot(np.concatenate((np.array([f]), tau)))
     elif rankA == 5:
-        pass
+        # find the components of the total thrust on the Q-plane to derive the motor dynamics
+        axis_stack = np.vstack((structure.axis[0][1], structure.axis[1][1]))   # 2x3
+        f_d_xy = axis_stack.dot(R.T.dot(F))
+        # # Eq 13
+        # # print q
+        # # f_des5 = F - F.dot(qz)*F
+        # f_des5_x = F.dot(qx)
+        # f_des5_y = F.dot(qy)
+        # # print f_des5_x, f_des5_y
+        # find the components of the thrust vectors on the Q-plane to derive the motor dynamics
+        A_motor_f = axis_stack.dot(structure.A[:3, :])
+        A_motor = np.concatenate((A_motor_f, A_tau))
+        # pseudo-inverse to optimize over energy consumption
+        rotor_forces = np.linalg.pinv(A_motor).dot(np.concatenate((f_d_xy, tau)))
     else:
         rotor_forces = np.linalg.pinv(structure.A).dot(np.concatenate((F, tau)))
     # Failing motors
@@ -189,4 +201,5 @@ def modquad_torque_control(F, tau, structure, state_vector, motor_sat=False):
 
     # From prop forces to total wrench
     w = structure.A.dot(rotor_forces)
+    print "rotor_forces:", rotor_forces
     return w[0:3], w[3:], rotor_forces

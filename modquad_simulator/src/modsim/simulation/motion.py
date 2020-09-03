@@ -41,7 +41,7 @@ def state_derivative(state_vector, F, M, structure):
 
     # Acceleration
     gravity_vector = np.array([0, 0, structure.n * params.mass * params.grav])
-    linear_acceleration = (wRb.dot(F) - gravity_vector) / params.mass
+    linear_acceleration = (wRb.dot(F) - gravity_vector) / (structure.n * params.mass)
 
     ## Assemble the derivative of the state
     sdot = np.zeros(13)

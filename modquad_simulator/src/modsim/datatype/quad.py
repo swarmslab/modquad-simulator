@@ -1,5 +1,6 @@
 import numpy as np
 from modsim import params
+import math
 
 class Quad:
     """
@@ -17,17 +18,20 @@ class Quad:
         self._id = id
         self._failure = failure
 
+        Rx = np.array([[1, 0, 0],
+                       [0, math.cos(self._row), -math.sin(self._row)],
+                       [0, math.sin(self._row), math.cos(self._row)]])
+
+        Ry = np.array([[math.cos(self._pitch), 0, math.sin(self._pitch)],
+                       [0, 1, 0],
+                       [-math.sin(self._pitch), 0, math.cos(self._pitch)]])
+        self._Rp = Ry.dot(Rx)
+        #
+        # print Rx.dot(np.array([0,0,1]))
+        # print Ry.dot(np.array([0, 0, 1]))
+
     def getRp(self):
         """
         :return Rp: the rotation matrix of the tilting propellers
         """
-        Rx = np.array([[1, 0, 0],
-                       [0, np.cos(self._row), -np.sin(self._row)],
-                       [0, np.sin(self._row), np.cos(self._row)]])
-
-        Ry = np.array([[np.cos(self._pitch), 0, np.sin(self._pitch)],
-                       [0, 1, 0],
-                       [-np.sin(self._pitch), 0, np.cos(self._pitch)]])
-
-        Rp = Ry.dot(Rx)
-        return Rp
+        return self._Rp

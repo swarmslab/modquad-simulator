@@ -24,11 +24,11 @@
            <param name="~init_y" value="$(arg init_y)" type="double"/>
        </node>
 
-        <!--position controller-->
-        <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
-            <param name="frame" value="$(arg model)"/><param name="world" value="worldFrame"/>
-            <rosparam command="load" file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
-        </node>
+<!--        &lt;!&ndash;position controller&ndash;&gt;-->
+<!--        <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">-->
+<!--            <param name="frame" value="$(arg model)"/><param name="world" value="worldFrame"/>-->
+<!--            <rosparam command="load" file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>-->
+<!--        </node>-->
 
 
         <!--mesh publisher for rviz visualization-->

@@ -3,6 +3,7 @@ import math
 from modsim.util.state import state_to_quadrotor
 from modsim.util.linearalg import vee_map
 from modsim.util.linearalg import hat_map
+from modsim.util.linearalg import vecs_to_rot
 from transforms3d import quaternions
 import numpy as np
 
@@ -10,7 +11,7 @@ import numpy as np
 accumulated_error = np.array([0., 0., 0.])
 
 
-def geo_attitude_controller(f_des, state_vector, desired_state):
+def geo_attitude_controller(structure, f_des, state_vector, desired_state):
     """
     Attitude controller for the entire structure as one.
     the output are force and moment vectors.
@@ -20,19 +21,22 @@ def geo_attitude_controller(f_des, state_vector, desired_state):
     :return tau: desired moment vector
     """
     global accumulated_error
+    # get the major and minor axis of the thrust ellipse
+    majorR = structure.majorR
+    minorR = structure.minorR
 
     # access desired state
     [pos_des, vel_des, acc_des, yaw_des, des_yawdot] = desired_state
-
+    # print des_yawdot
     # access current state
     # pos = state_vector[:3]
     # vel = state_vector[3:6]
-    quat = np.array([state_vector[9], state_vector[6], state_vector[7], state_vector[8]])  # Somebody decided to reverse
-                                                                                           # the qw in state.py
+    quat = np.array([state_vector[9], state_vector[6], state_vector[7], state_vector[8]])  # thanks to ROS quaternion
+                                                                                            # representation
     R = quaternions.quat2mat(quat)
     omega = np.array(state_vector[10:])
 
-    kp, kd, ki = 1.43e-5 * 1200, 1.43e-5 * 540, .00001
+    kp, kd, ki = 1.43e-5 * structure.n * 500, 1.43e-5 * structure.n * 180, structure.n * .00001
 
     # desired direction in SO(3)
     # Eq 6a - 6e
@@ -45,9 +49,10 @@ def geo_attitude_controller(f_des, state_vector, desired_state):
 
     # error in SO(3)
     # Eq 7a - 7b
-    e_R = -0.5*np.array(vee_map(Rd.T.dot(R)-R.T.dot(Rd)))
-    e_omega = omega - R.T.dot(Rd).dot(np.array([0, 0, des_yawdot]))
+    e_R = -0.5*np.array(vee_map(Rd.T.dot(R.dot(majorR))-R.dot(majorR).T.dot(Rd)))
+    e_omega = omega - R.dot(majorR).T.dot(Rd).dot(np.array([0, 0, des_yawdot]))
 
+    print "e_R = ", e_R
     accumulated_error += e_R
     # print accumulated_error[0]
 

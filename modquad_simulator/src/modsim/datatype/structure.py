@@ -1,10 +1,10 @@
 import numpy as np
 from modsim.datatype.quad import Quad
 from modsim import params
+from modsim.util.linearalg import vecs_to_rot
 
 
 class Structure:
-
     def __init__(self, ids=['modquad01'], quads=[Quad()], xx=[0], yy=[0], motor_failure=[]):
         # print len(ids), len(quads), len(xx), len(yy)
         """
@@ -28,7 +28,7 @@ class Structure:
 
         # Equation (4) of the Modquad paper
         # FIXME inertia with parallel axis theorem is not working. Temporary multiplied by zero
-        self.inertia_tensor = self.n * np.array(params.I) + 0. * params.mass * np.diag([
+        self.inertia_tensor = self.n * np.array(params.I) + params.mass * np.diag([
             np.sum(self.yy ** 2),
             np.sum(self.xx ** 2),
             np.sum(self.yy ** 2) + np.sum(self.xx ** 2)
@@ -61,5 +61,35 @@ class Structure:
                 np.cross(p[3], Rp.dot(e3)) - ctau*Rp.dot(e3)]).T), axis=0)
 
         self.A = np.concatenate(A_list, axis=1)
+        # print self.A
         self.rankA = np.linalg.matrix_rank(self.A)
         print self.rankA
+
+        # find the major and minor axis of the thrusts using SVD
+        Af = self.A[:3, :]
+        w, v = np.linalg.eigh(Af.dot(Af.T))
+
+        # pick out non-zero eigenvalues and sort them
+        eigs = []
+        for i in range(w.size):
+            if not np.allclose(w[i], 0):
+                eigs.append([w[i], v[:, i]])
+        self.axis = sorted(eigs, reverse=True)
+        # print len(self.axis)
+
+        # make sure sum of major axis is in the right direction
+        sum_thrust = np.zeros([3])
+        for i in range(self.n):
+            print self.quads[i].getRp().dot(e3)
+            sum_thrust += self.quads[i].getRp().dot(e3)
+        if self.axis[0][1].dot(sum_thrust) < 0:
+            self.axis[0][1] = -self.axis[0][1]
+        print self.axis[0][1]
+        print
+        print
+        # find out the rotation matrix for the major and minor axis
+        self.majorR = vecs_to_rot(e3, self.axis[0][1])
+        self.minorR = None
+        if len(self.axis) > 1:
+            self.minorR = vecs_to_rot(e3, self.axis[1][1])
+
