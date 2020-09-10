@@ -325,7 +325,7 @@ def min_snap_trajectory(t, speed=1, traj_vars=None, waypts=None,
         acc = res[2,:]
         yaw = 0
         yawdot = 0
-        #print("\tAt t = {:03f}, pos = {}".format(t, pos))
+        #print("\tAt t = {:03f}, pos = {}, vel = {}, acc = {}".format(t, pos, vel, acc))
         #print('---')
         return [pos, vel, acc, yaw, yawdot]
 

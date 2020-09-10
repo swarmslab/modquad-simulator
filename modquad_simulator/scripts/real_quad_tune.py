@@ -27,15 +27,15 @@ import modquad_sched_interface.structure_gen as structure_gen
 
 from modquad_sched_interface.simple_scheduler import lin_assign
 
+
 def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
-    rospy.init_node('modrotor_simulator')
-    rospy.loginfo("!!READY!!")
+    rospy.init_node('modrotor_simulator', anonymous=True)
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
 
-    # rospy.wait_for_service('/modquad13/update_params')
-    # rospy.loginfo("found update_params service")
-    # update_params = rospy.ServiceProxy('/modquad13/update_params', UpdateParams)
+    rospy.wait_for_service('/modquad13/update_params')
+    rospy.loginfo("found update_params service")
+    update_params = rospy.ServiceProxy('/modquad13/update_params', UpdateParams)
 
     rospy.set_param("kalman/resetEstimation", 1)
 
@@ -57,7 +57,7 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     # TF publisher
     #tf_broadcaster = tf2_ros.TransformBroadcaster()
 
-    freq = 80.0  # 100hz
+    freq = 50  # 100hz
     rate = rospy.Rate(freq)
     t = 0
 
@@ -66,48 +66,40 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     odom_mgr.subscribe()
 
     # Publish here to control
-    velpub = rospy.Publisher('/modquad13/mq_cmd_vel', Twist, queue_size=100)
+    velpub = rospy.Publisher('/modquad13/cmd_vel', Twist, queue_size=100)
 
-    # # Takeoff service
-    # rospy.loginfo("Taking off, wait a couple of seconds.")
-    # takeoff_services = [rospy.ServiceProxy('/modquad13/takeoff', Empty)]
+    # Takeoff service
+    rospy.loginfo("Taking off, wait a couple of seconds.")
+    takeoff_services = [rospy.ServiceProxy('/modquad13/takeoff', Empty)]
 
     # Publish to robot
     msg = Twist()
 
-    np.set_printoptions(precision=1)
+    np.set_printoptions(precision=2)
 
-    # First few msgs will be zeros
-    msg.linear.x = 0 # roll [-30, 30] deg
-    msg.linear.y = 0 # pitch [-30, 30] deg
-    msg.linear.z = 0 # Thrust ranges 10000 - 60000
-    msg.angular.z = 0 # yaw rate
-
+    # First few msgs must be zeros
     t = 0
-    while t < 5:
+    while t < 2:
+        msg.linear.x = 0 # roll [-30, 30] deg
+        msg.linear.y = 0 # pitch [-30, 30] deg
+        msg.linear.z = 0 # Thrust ranges 10000 - 60000
+        msg.angular.z = 0 # yaw rate
         t += 1.0 / freq
-        velpub.publish(msg)
-        if round(t, 2) % 1.0 == 0:
-            rospy.loginfo("Sending zeros at t = {}".format(t))
         rate.sleep()
 
-    # # takeoff for all robots
-    # rospy.loginfo("Request takeoff")
-    # for takeoff in takeoff_services:
-    #     takeoff()
+    # takeoff for all robots
+    rospy.loginfo("Request takeoff")
+    for takeoff in takeoff_services:
+        takeoff()
 
     # shutdown
     rospy.on_shutdown(landing)
 
-    # Update odom
-    rospy.sleep(1)
-    structure.state_vector = odom_mgr.get_new_state(0)
+    #rospy.sleep(3)
 
-    tstart = rospy.get_time()
     t = 0
     rospy.loginfo("Start Control")
     while not rospy.is_shutdown(): # and t < overtime*tmax + 1.0 / freq:
-        t = rospy.get_time() - tstart
 
         # Simulate, obtain new state and state derivative
         structure.state_vector = odom_mgr.get_new_state(0)
@@ -116,9 +108,11 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
         # print(structure.state_vector)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
-
-        # Overwrite for hover
-        #desired_state[0] = [6.3, 0, 0.8] #structure.state_vector[:3]
+        desired_state[0] = np.array([2.577, -0.895, 0.5]) # Position
+        desired_state[1] = np.array([0, 0, 0]) # Vel
+        desired_state[2] = np.array([0, 0, 9.81]) # Acc
+        desired_state[3] = 0 # Yaw
+        desired_state[4] = 0 # Yawdot
 
         # # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
@@ -127,24 +121,22 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
         # # Convert thrust to PWM range
         thrust = convert_thrust_newtons_to_pwm(thrust_newtons)
  
-        msg.linear.x  = pitch # pitch [-30, 30] deg
-        msg.linear.y  = roll  # roll [-30, 30] deg
-        msg.linear.z  = thrust # Thrust ranges 10000 - 60000
-        msg.angular.z = yaw # yaw rate
+        msg.linear.x = 0 #roll # roll [-30, 30] deg
+        msg.linear.y = 0 #pitch # pitch [-30, 30] deg
+        msg.linear.z = thrust # Thrust ranges 10000 - 60000
+        msg.angular.z = 0 # yaw # yaw rate
 
-        if round(t, 2) % 0.5 == 0:
-            rospy.loginfo("[{}] {}".format(t, 
-                                        np.array([thrust, roll, pitch, yaw])))
-            rospy.loginfo("     Des={}, Is={}".format(
-                                            np.array(desired_state[0]), 
-                                            np.array(structure.state_vector[:3])))
+        if round(t, 2) % 2 == 0:
+            rospy.loginfo("[{}] {}".format(t, np.array([thrust, roll, pitch, yaw])))
 
-        #t += 1.0 / freq
+        t += 1.0 / freq
 
         velpub.publish(msg)
 
         # The sleep is to make the simulation look like it would in real life
         rate.sleep()
+
+    #landing()
 
 def landing():
     prefix = 'modquad'
@@ -176,31 +168,19 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
 
 if __name__ == '__main__':
     print("starting simulation")
+
+    x =  5.0
+    y =  0.0
+    z =  0.5
 #,[x,y-0.5,z-0.5],
 #                                            [x+1,y,z],[x,y+1,z],
 #                                            [x,y,z],[x,y,0.1]
-    x = 6.68 # 6.3
-    y = 0.64 #-1.0
-    z = 0.00 # 0.5
-
     results = test_shape_with_waypts(
                        structure_gen.rect(1, 1), 
-                       waypt_gen.helix(radius=1.0, 
-                                       rise=0.75, 
-                                       num_circ=5, 
-                                       start_pt=[x, y, 0.0]),
-                       # waypt_gen.waypt_set([[x    , y    , 0.0],
-                       #                      [x    , y    , 0.1],
-                       #                      [x    , y    , 0.5],
-                       #                      [x    , y    , 0.8],
-                       #                      [x    , y+1.5, 0.8],
-                       #                      [x+0.5, y+1.5, 0.8],
-                       #                      [x+1.5, y+1.5, 0.8],
-                       #                      [x+0.5, y+0.5, 0.8],
-                       #                      [x    , y    , 0.8],
-                       #                      [x    , y    , 0.2]
-                       #                     ]
-                       #                    ),
-                       speed=0.5, test_id="controls", 
+                       #waypt_gen.helix(2.5, 2, 3),
+                       waypt_gen.waypt_set([[x,y,0],[x,y,z],
+                                            [x,y+0.1,z-0.5]     ]
+                                          ),
+                       speed=2.5, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

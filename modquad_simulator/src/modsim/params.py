@@ -14,7 +14,7 @@ from math import pi
 #    height = 0.012m
 chassis_width = 0.03#m 
 
-m = 0.039  # weight (in kg) with cage (each is about 0.039kg)
+m = 0.032  # weight (in kg) with cage (each is about 0.039kg)
 g = 9.81  # gravitational constant
 # inertia tensor in m^2 kg
 # I = [[1.43e-5, 0, 0],
@@ -42,3 +42,11 @@ maxangle = 40 * pi / 180  # you can specify the maximum commanded angle here
 # FIXME the maximum force should be 4*60g
 maxF = 2.5 * m * g  # left these untouched from the nano plus
 minF = 0.0 * m * g  # left these untouched from the nano plus
+
+
+max_thrust = 0.597 # from bitcraze
+
+class RunType:
+    SIM = 0
+    VICON = 1
+    FLOWDECK = 2

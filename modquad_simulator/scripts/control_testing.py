@@ -117,7 +117,7 @@ def simulate(structure, trajectory_function, sched_mset,
     tf_broadcaster = tf2_ros.TransformBroadcaster()
 
     can_pub_imu = False
-    freq = 100  # 100hz
+    freq = 500  # 100hz
     rate = rospy.Rate(freq)
     t = 0
     ind = 0.0

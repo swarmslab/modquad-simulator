@@ -29,115 +29,155 @@ def position_controller(structure, desired_state):
     m = params.mass
     g = params.grav
 
-    # Multi mod control params
-    if num_mod > 30: # Not tuned yet
-        xyp =   7.0
-        xyd =  10.0
-        xyi =   0.01
-        zp  =   8.0
-        zd  =   5.0
-        zi  =   1.5
-    elif num_mod > 19: # 21-30 mods
-        xyp =  7.0
-        xyd =  20.0
-        xyi =   0.01
-        zp  =  10.0
-        zd  =  14.0
-        zi  =   2.5
-    elif num_mod > 12: # 13-20 mods
-        xyp =  7.0
-        xyd =  25.0
-        xyi =   0.01
-        zp  =  10.0
-        zd  =  14.0
-        zi  =   2.5
-    elif num_mod > 4: # 5-12 mods
-        # xyp =   10.0 
-        # xyd =   10.0 
-        # xyi =    0.01 
-        # zp  =   15.0
-        # zd  =   15.0 
-        # zi  =    1.5 
-        xyp =  15.0 
-        xyd =  30.0 
-        xyi =   0.01 
-        zp  =  15.0
-        zd  =  18.0 
-        zi  =   2.5 
-    # Control gains for 3-4 mods
-    elif num_mod > 3:
-        #xyp =  1.0
-        #xyd =  1.0
-        #xyi =   0.01
-        #zp  =   1.0
-        #zd  =   1.0
-        #zi  =   0.5
-        xyp =  10.0
-        xyd =  40.0
-        xyi =   0.01
-        zp  =  10.0
-        zd  =  30.0
-        zi  =   2.5
-        ##xyp =  29.0
-        ##xyd =  51.0
-        ##xyi =   0.01
-        ##zp  =  13.0
-        ##zd  =  18.0
-        ##zi  =   2.5
-    elif num_mod > 2:
-        xyp =  39.0
-        xyd =  91.0
-        xyi =   0.01
-        zp  =  13.0
-        zd  =  18.0
-        zi  =   0.01#2.5
-    elif num_mod == 2:
-        xyp =  30.0
-        xyd =  85.0
-        xyi =   0.01
-        zp  =  10.0
-        zd  =  18.0
-        zi  =   0.01
-    else: # Single module
-        #xyp =  9.0
-        #xyd = 18.0
-        #xyi =  0.01
-        xyp =  45.0   # 17.0
-        xyd =  50.0   # 99.0
-        xyi =   0.01  #  0.1 
-        zp  =   9.0   #  9.0
-        zd  =  18.0   # 18.0
-        zi  =   0.01  #  2.5
+    xyp =  15.0  
+    xyd =  40.0  
+    xyi =   0.01
+    zp  =  15.0
+    zd  =  14.0
+    zi  =   1.5
 
-    kp1_u, kd1_u, ki1_u = xyp, xyd, xyi #10., 71., .0
-    kp2_u, kd2_u, ki2_u = xyp, xyd, xyi #10., 71., .0
-    kp3_u, kd3_u, ki3_u =  zp,  zd,  zi #10., 48., .0
+    kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
+    kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
+    kp3_u, kd3_u, ki3_u =   zp,   zd,   zi # 10.0, 48.0, 0.0 
 
     # Error
-    pos_error = pos_des - pos
-    vel_error = vel_des - vel
-    structure.pos_accumulated_error += pos_error
-    #if rospy.get_param("print_pos_error", 0) == 1:
-    #    print(structure.ids, pos_error)
+    pos_error = np.array(pos_des) - np.array(pos)
+    vel_error = np.array(vel_des) - np.array(vel)
+    structure.pos_accumulated_error += np.array(pos_error)
 
     # Desired acceleration
-    r1_acc = kp1_u * pos_error[0] + kd1_u * vel_error[0] + acc_des[0] + ki1_u * structure.pos_accumulated_error[0]
-    r2_acc = kp2_u * pos_error[1] + kd2_u * vel_error[1] + acc_des[1] + ki2_u * structure.pos_accumulated_error[1]
-    r3_acc = kp3_u * pos_error[2] + kd3_u * vel_error[2] + acc_des[2] + ki3_u * structure.pos_accumulated_error[2]
+    r1_acc = kp1_u * pos_error[0] + \
+             kd1_u * vel_error[0] + \
+                     acc_des[0]   + \
+             ki1_u * structure.pos_accumulated_error[0]
 
-    phi_des = (r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g
+    r2_acc = kp2_u * pos_error[1] + \
+             kd2_u * vel_error[1] + \
+                      acc_des[1]   + \
+             ki2_u * structure.pos_accumulated_error[1]
+
+    r3_acc = kp3_u * pos_error[2] + \
+             kd3_u * vel_error[2] + \
+                     acc_des[2]   + \
+             ki3_u * structure.pos_accumulated_error[2]
+
+    # print("----- R1 -----")
+    # print("{} * {} + {} * {} + {} + {} * {} = {}".format(
+    #     kp1_u, pos_error[0], kd1_u, vel_error[0], acc_des[0],
+    #     ki1_u, structure.pos_accumulated_error[0], r1_acc
+    # ))
+    # print("----- R2 -----")
+    # print("{} * {} + {} * {} + {} + {} * {} = {}".format(
+    #     kp2_u, pos_error[1], kd2_u, vel_error[1], acc_des[1],
+    #     ki2_u, structure.pos_accumulated_error[1], r2_acc
+    # ))
+    # print("----- R3 -----")
+    # print("{} * {} + {} * {} + {} + {} * {} = {}".format(
+    #     kp3_u, pos_error[2], kd3_u, vel_error[2], acc_des[2],
+    #     ki3_u, structure.pos_accumulated_error[2], r3_acc
+    # ))
+    # print("=======================")
+
+    # Effectively, since yaw_des = 0
+    # phi_des   = -r2_acc / g
+    # theta_des =  r1_acc / g
+    phi_des   = (r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g
     theta_des = (r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g
-    psi_des = yaw_des
+    psi_des   = yaw_des
+
+
+    max_ang   = 10.0
+    phi_des   = max(min(phi_des  , max_ang), -max_ang)
+    theta_des = max(min(theta_des, max_ang), -max_ang)
+    psi_des   = max(min(psi_des  , max_ang), -max_ang)
 
     # Thrust
     thrust = m * g + m * r3_acc
-    #print(pos_des, pos)
-    #print(pos_error, thrust)
-    #print('---')
+
+    #import pdb; pdb.set_trace()
 
     # desired thrust and attitude
     return [thrust, phi_des, theta_des, psi_des]
 
+    ###   # Multi mod control params
+    ###   if num_mod > 30: # Not tuned yet
+    ###       xyp =   7.0
+    ###       xyd =  10.0
+    ###       xyi =   0.01
+    ###       zp  =   8.0
+    ###       zd  =   5.0
+    ###       zi  =   1.5
+    ###   elif num_mod > 19: # 21-30 mods
+    ###       xyp =  7.0
+    ###       xyd =  20.0
+    ###       xyi =   0.01
+    ###       zp  =  10.0
+    ###       zd  =  14.0
+    ###       zi  =   2.5
+    ###   elif num_mod > 12: # 13-20 mods
+    ###       xyp =  7.0
+    ###       xyd =  25.0
+    ###       xyi =   0.01
+    ###       zp  =  10.0
+    ###       zd  =  14.0
+    ###       zi  =   2.5
+    ###   elif num_mod > 4: # 5-12 mods
+    ###       # xyp =   10.0 
+    ###       # xyd =   10.0 
+    ###       # xyi =    0.01 
+    ###       # zp  =   15.0
+    ###       # zd  =   15.0 
+    ###       # zi  =    1.5 
+    ###       xyp =  15.0 
+    ###       xyd =  30.0 
+    ###       xyi =   0.01 
+    ###       zp  =  15.0
+    ###       zd  =  18.0 
+    ###       zi  =   2.5 
+    ###   # Control gains for 3-4 mods
+    ###   elif num_mod > 3:
+    ###       #xyp =  1.0
+    ###       #xyd =  1.0
+    ###       #xyi =   0.01
+    ###       #zp  =   1.0
+    ###       #zd  =   1.0
+    ###       #zi  =   0.5
+    ###       xyp =  10.0
+    ###       xyd =  40.0
+    ###       xyi =   0.01
+    ###       zp  =  10.0
+    ###       zd  =  30.0
+    ###       zi  =   2.5
+    ###       ##xyp =  29.0
+    ###       ##xyd =  51.0
+    ###       ##xyi =   0.01
+    ###       ##zp  =  13.0
+    ###       ##zd  =  18.0
+    ###       ##zi  =   2.5
+    ###   elif num_mod > 2:
+    ###       xyp =  39.0
+    ###       xyd =  91.0
+    ###       xyi =   0.01
+    ###       zp  =  13.0
+    ###       zd  =  18.0
+    ###       zi  =   0.01#2.5
+    ###   elif num_mod == 2:
+    ###       xyp =  30.0
+    ###       xyd =  85.0
+    ###       xyi =   0.01
+    ###       zp  =  10.0
+    ###       zd  =  18.0
+    ###       zi  =   0.01
+    ###   else: # Single module
+    ###       #xyp =  9.0
+    ###       #xyd = 18.0
+    ###       #xyi =  0.01
+    ###       xyp =  45.0   # 17.0
+    ###       xyd =  50.0   # 99.0
+    ###       xyi =   0.01  #  0.1 
+    ###       zp  =   9.0   #  9.0
+    ###       zd  =  18.0   # 18.0
+    ###       zi  =   0.01  #  2.5
 
 def modquad_torque_control(F, M, structure,
                             motor_sat=False, en_fail_rotor=False, 
