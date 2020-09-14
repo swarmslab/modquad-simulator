@@ -58,6 +58,11 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     odom_mgr.subscribe()
 
     # Publish here to control
+    # crazyflie_controller/src/controller.cpp has been modified to subscribe to
+    # this topic, and if we are in the ModQuad state, then the Twist message
+    # from mq_cmd_vel will be passed through to cmd_vel
+    # TODO: modify so that we publish to all modules in the struc instead of
+    # single hardcoded one
     velpub = rospy.Publisher('/modquad13/mq_cmd_vel', Twist, queue_size=100)
 
     # Publish to robot
@@ -71,6 +76,8 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     msg.linear.z = 0 # Thrust ranges 10000 - 60000
     msg.angular.z = 0 # yaw rate
 
+    # Start by sending NOPs so that we have known start state
+    # Useful for debugging and safety
     t = 0
     while t < 5:
         t += 1.0 / freq
@@ -86,6 +93,11 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     rospy.sleep(1)
     structure.state_vector = odom_mgr.get_new_state(0)
 
+    """
+    THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
+    YOU MUST PAIR THIS WITH MODIFIED CRAZYFLIE_CONTROLLER/SRC/CONTROLLER.CPP
+    AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
+    """
     tstart = rospy.get_time()
     t = 0
     rospy.loginfo("Start Control")
@@ -161,7 +173,7 @@ if __name__ == '__main__':
     z = 0.00 # 0.5
 
     results = test_shape_with_waypts(
-                       structure_gen.rect(1, 1), 
+                       structure_gen.rect(2, 1), 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
                        waypt_gen.helix(radius=0.5, 
                                        rise=1.5, 
