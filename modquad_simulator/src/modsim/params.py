@@ -14,7 +14,8 @@ from math import pi
 #    height = 0.012m
 chassis_width = 0.03#m 
 
-m = 0.032  # weight (in kg) with cage (each is about 0.039kg)
+#m = 0.032  # weight (in kg) without cage (each is about 0.032kg)
+m = 0.04  # weight (in kg) without cage (each is about 0.04kg)
 g = 9.81  # gravitational constant
 # inertia tensor in m^2 kg
 # I = [[1.43e-5, 0, 0],

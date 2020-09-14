@@ -185,22 +185,27 @@ if __name__ == '__main__':
 
     results = test_shape_with_waypts(
                        structure_gen.rect(1, 1), 
-                       waypt_gen.helix(radius=1.0, 
-                                       rise=0.75, 
-                                       num_circ=5, 
+                       #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
+                       waypt_gen.helix(radius=0.5, 
+                                       rise=1.5, 
+                                       num_circ=3, 
                                        start_pt=[x, y, 0.0]),
-                       # waypt_gen.waypt_set([[x    , y    , 0.0],
-                       #                      [x    , y    , 0.1],
-                       #                      [x    , y    , 0.5],
-                       #                      [x    , y    , 0.8],
-                       #                      [x    , y+1.5, 0.8],
-                       #                      [x+0.5, y+1.5, 0.8],
-                       #                      [x+1.5, y+1.5, 0.8],
-                       #                      [x+0.5, y+0.5, 0.8],
-                       #                      [x    , y    , 0.8],
-                       #                      [x    , y    , 0.2]
-                       #                     ]
-                       #                    ),
-                       speed=0.5, test_id="controls", 
+                       #waypt_gen.waypt_set([[x    , y    , 0.0],
+                       #                     [x    , y    , 0.1],
+                       #                     [x    , y    , 0.5],
+                       #                     [x    , y    , 0.8]]),
+                       #waypt_gen.waypt_set([[x    , y    , 0.0],
+                       #                     [x    , y    , 0.1],
+                       #                     [x    , y    , 0.5],
+                       #                     [x    , y    , 0.8],
+                       #                     [x    , y+1.5, 0.8],
+                       #                     [x+0.5, y+1.5, 0.8],
+                       #                     [x+1.5, y+1.5, 0.8],
+                       #                     [x+0.5, y+0.5, 0.8],
+                       #                     [x    , y    , 0.8],
+                       #                     [x    , y    , 0.2]
+                       #                    ]
+                       #                   ),
+                       speed=1.25, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

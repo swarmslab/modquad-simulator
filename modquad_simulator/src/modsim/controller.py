@@ -29,12 +29,21 @@ def position_controller(structure, desired_state):
     m = params.mass
     g = params.grav
 
-    xyp =  15.0  
-    xyd =  40.0  
+    # Single, unframed CF2
+    # xyp =  15.0  
+    # xyd =  40.0  
+    # xyi =   0.01
+    # zp  =  15.0
+    # zd  =  14.0
+    # zi  =   1.5
+
+    # Single, framed CF2
+    xyp =  25.0  
+    xyd =  41.0  
     xyi =   0.01
-    zp  =  15.0
-    zd  =  14.0
-    zi  =   1.5
+    zp  =  10.0
+    zd  =  10.0
+    zi  =   0.25
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
@@ -86,7 +95,7 @@ def position_controller(structure, desired_state):
     psi_des   = yaw_des
 
 
-    max_ang   = 10.0
+    max_ang   = 20.0
     phi_des   = max(min(phi_des  , max_ang), -max_ang)
     theta_des = max(min(theta_des, max_ang), -max_ang)
     psi_des   = max(min(psi_des  , max_ang), -max_ang)

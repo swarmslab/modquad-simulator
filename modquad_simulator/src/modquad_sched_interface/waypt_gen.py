@@ -54,6 +54,8 @@ def helix(radius, rise, num_circ, start_pt=[0.0,0.0,0.0]):
             #print(theta)
     next_pt = [loc[0]+math.cos(theta), loc[1]+math.sin(theta), height+height_step]
     waypts.append(next_pt)
+    waypts.append([next_pt[0], next_pt[1], 0.7]) # For safe descent
+    waypts.append([next_pt[0], next_pt[1], 0.4]) # For safe descent
     waypts.append([next_pt[0], next_pt[1], 0.2]) # For safe descent
     waypts += np.array([start_pt[0], start_pt[1], start_pt[2]])
     print(" WAYPOINTS ")
@@ -84,7 +86,13 @@ def zigzag_xy(length, height, num_osc=2.0, start_pt=[0,0,0]):
 def zigzag_xz(length, height, num_osc=2.0, start_pt=[0,0,0]):
     waypts = np.zeros((0,3))
     leninc = (length / num_osc)/2.0
+    ground = start_pt
+    ground[-1] = 0
+
+    waypts = np.vstack((waypts, ground))
+    waypts = np.vstack((waypts, start_pt))
     start = start_pt
+
     for i in range(0, int(num_osc)):
         a = np.array( [ [start[0]         , start[1], start[2]       ],
                         [start[0]+leninc  , start[1], start[2]+height]
