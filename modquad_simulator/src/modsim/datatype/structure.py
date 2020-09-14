@@ -88,7 +88,6 @@ class Structure:
         R = [r for r in range(pi.shape[0])]
         C = [c for c in range(pi.shape[1])]
         RC = [p for p in itertools.product(R,C)]
-        #shape = ';'.join(''.join('%d' % int(x>-1) for x in y) for y in pi)
         shape2 = []
         for r in R:
             for c in C:
@@ -108,12 +107,6 @@ class Structure:
                         for mod in sorted(self.ids))
         else:
             return shape
-        #print(pi)
-        #print(self.ids)
-        #print(self.xx)
-        #print(self.yy)
-        #print("rot_fails: {}".format(self.motor_failure))
-        #print(shape + '_' + rotorstat)
         return shape + '_' + rotorstat
 
     def update_control_params(self, thrust_newtons, roll, pitch, yaw):

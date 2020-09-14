@@ -120,16 +120,8 @@ class StructureManager:
             # Overwrite the control input with the demo trajectory
             [thrust_newtons, roll, pitch, yaw] = \
                     position_controller(structure, desired_state)
-            #print("thrust={}, roll={}, pitch={}, yaw={}".format(
-            #    thrust_newtons, roll, pitch, yaw))
-            #print("---")
 
-            #self.strucs[i].update_control_params(thrust_newtons, roll, pitch, yaw)
             try:
-                #if len(self.strucs) == 1:
-                #    print(desired_state)
-                #    print(structure.state_vector)
-                #print(i)
                 self.desired_states_log[i].append(desired_state[0])
             except:
                 # The joining of strucs cause the value of i to be out of range
@@ -138,51 +130,35 @@ class StructureManager:
             # Control output based on crazyflie input
             F_single, M_single = \
                     attitude_controller(structure, (thrust_newtons, roll, pitch, yaw))
-            #if i == 1:
-            #    print("F_single={}, M_single={}".format(F_single, M_single))
 
             # Control of Moments and thrust
             F_structure, M_structure, rotor_forces = modquad_torque_control(
                             F_single, M_single, structure, motor_sat=False)
-            #if i == 1:
-            #    print("F_struc={}, M_struc={}, rot_force={}".format(
-            #       F_structure, M_structure, rotor_forces))
 
             # Simulate
             try:
-                #if len(self.strucs) == 1:
-                #    print(desired_state)
-                #    print(structure.state_vector)
-                #print(i)
                 self.state_vecs_log[i].append(structure.state_vector[:3])
             except:
                 # The joining of strucs cause the value of i to be out of range
                 pass
 
             # sdot is the state vector derivative
-            structure.state_vector, sdot = simulation_step(structure, structure.state_vector, 
-                            F_structure, M_structure, 1. / self.freq)
+            structure.state_vector, sdot = \
+                            simulation_step(structure, structure.state_vector, 
+                                            F_structure, M_structure, \
+                                            1. / self.freq)
 
             # For IMU data, we need this information
-            publish_structure_acceleration(structure, sdot, acc_publishers, tf_broadcaster)
-
-            #if i == 1:
-            #    print("New state = {}".format(structure.state_vector))
-            #    print('-----')
-            #if i == 1:
-            #    print("Pos Err: {}".format(structure.pos_accumulated_error))
-            #    print("Att Err: {}".format(structure.att_accumulated_error))
-            #if 'modquad06' in structure.ids:
-            #    s1 = desired_state[0]
-            #    s2 = structure.state_vector[:3]
-            #    print("Mod6 Desire Pos: {}".format(s1))
-            #    print("Mod6 Actual Pos: {}".format(s2))
-            #    print("\t Error is: {}".format(s1-s2))
+            publish_structure_acceleration(structure, sdot, \
+                                            acc_publishers, tf_broadcaster)
         
     def get_data_by_ind(self, index):
         if index < 0 or index > len(self.strucs):
             return None
-        return self.strucs[index], self.strucs[index].state_vector, self.strucs[index].traj_vars
+
+        return self.strucs[index], \
+               self.strucs[index].state_vector, \
+               self.strucs[index].traj_vars
 
     def get_states(self): 
         """
@@ -193,7 +169,6 @@ class StructureManager:
     def split_struc(self, struc_to_replace, struclist):
         # Remove the structure that was split apart and its vars
         replace_ind = self.strucs.index(struc_to_replace)
-        #print("Replacing structure {} at index {}/{}".format(struc_to_replace.gen_hashstring(), replace_ind, len(self.strucs)))
         del self.strucs[replace_ind]
         org_des_stae = self.desired_states_log[replace_ind]
         org_stt_vecs = self.state_vecs_log[replace_ind]
@@ -209,8 +184,6 @@ class StructureManager:
     def find_struc_of_mod(self, mod_id):
         mod_id = 'modquad{:02d}'.format(mod_id)
         struc = [s for s in self.strucs if mod_id in s.ids] # list of len 1
-        #print(mod_id)
-        #print(struc)
         return struc[0] # Return structure obj containing the module
 
     def join_strucs(self, struc1, struc2, ids_pair, direction, traj_func, t):
@@ -222,21 +195,6 @@ class StructureManager:
         dirs = {1: 'right', 2: 'up', 3: 'left', 4: 'down'}
         print("Joining the pair {}, ({} and {}) in adj dir {}".format(
             ids_pair, struc1.ids, struc2.ids, dirs[direction]))
-        #mat1 = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
-        #mat2 = convert_struc_to_mat(struc2.ids, struc2.xx, struc2.yy)
-
-        #num_rows_1 = mat1.shape[0]
-        #num_cols_1 = mat1.shape[1]
-        #num_rows_2 = mat2.shape[0]
-        #num_cols_2 = mat2.shape[2]
-
-        #max_num_rows = num_rows_1
-        #max_num_cols = num_cols_1
-
-        # Define new matrix based on the desired adjacency
-        #if direction == 1 or direction == 3:
-        #    
-        #else:
 
         i = [j for j,v in enumerate(struc1.ids) 
                 if v == 'modquad{:02d}'.format(ids_pair[0])]
@@ -252,28 +210,30 @@ class StructureManager:
         # Define all struc2 mods relative to x, y
         xx2 = np.copy(struc2.xx)
         yy2 = np.copy(struc2.yy)
-        print("Struc1 State: {}".format(struc1.state_vector[:3]))
-        print("Struc2 State: {}".format(struc2.state_vector[:3]))
-        print("mods = {}".format(struc1.ids))
-        print("World Pos X: {}".format(struc1.xx + struc1.state_vector[0]))
-        print("World Pos Y: {}".format(struc1.yy + struc1.state_vector[1]))
-        print("mods = {}".format(struc2.ids))
-        print("World Pos X: {}".format(struc2.xx + struc2.state_vector[0]))
-        print("World Pos Y: {}".format(struc2.yy + struc2.state_vector[1]))
-        print("x1 = {}".format(x1))
-        print("y1 = {}".format(y1))
-        print("mods = {}".format(struc1.ids))
-        print("old xx1 = {}".format(struc1.xx))
-        print("old yy1 = {}".format(struc1.yy))
-        print('-')
-        print("mods = {}".format(struc2.ids))
-        print("old xx2 = {}".format(xx2))
-        print("old yy2 = {}".format(yy2))
+
+        ## DO NOT DELETE - USEFUL DEBUGGING PRINTS
+        # print("Struc1 State: {}".format(struc1.state_vector[:3]))
+        # print("Struc2 State: {}".format(struc2.state_vector[:3]))
+        # print("mods = {}".format(struc1.ids))
+        # print("World Pos X: {}".format(struc1.xx + struc1.state_vector[0]))
+        # print("World Pos Y: {}".format(struc1.yy + struc1.state_vector[1]))
+        # print("mods = {}".format(struc2.ids))
+        # print("World Pos X: {}".format(struc2.xx + struc2.state_vector[0]))
+        # print("World Pos Y: {}".format(struc2.yy + struc2.state_vector[1]))
+        # print("x1 = {}".format(x1))
+        # print("y1 = {}".format(y1))
+        # print("mods = {}".format(struc1.ids))
+        # print("old xx1 = {}".format(struc1.xx))
+        # print("old yy1 = {}".format(struc1.yy))
+        # print('-')
+        # print("mods = {}".format(struc2.ids))
+        # print("old xx2 = {}".format(xx2))
+        # print("old yy2 = {}".format(yy2))
 
         xdiff = x1 - x2
         ydiff = y1 - y2
-        print('xdiff = {}'.format(xdiff))
-        print('ydiff = {}'.format(ydiff))
+        # print('xdiff = {}'.format(xdiff))
+        # print('ydiff = {}'.format(ydiff))
 
         # Shift the struc2 coordinates to match the center of mass of struc1
         #       dirs = {1: 'right', 2: 'up', 3: 'left', 4: 'down'}
@@ -304,9 +264,6 @@ class StructureManager:
         fails = struc1.motor_failure + struc2.motor_failure
 
         newstruc = Structure(ids=mids, xx=xx, yy=yy, motor_failure=fails)
-        #print("centered xx = {}".format(newstruc.xx))
-        #print("centered yy = {}".format(newstruc.yy))
-
 
         # The index i corresponds to the second new adjacency module
         center_of_mass_shift_x = newstruc.xx[i] - x2
@@ -322,9 +279,6 @@ class StructureManager:
                 waypt_gen.line(np.copy(newstruc.state_vector[:3]), np.copy(newstruc.state_vector[:3]+0.1)))
 
         print("New structure is the following: ")
-        #print(newstruc.ids)
-        #print(newstruc.xx)
-        #print(newstruc.yy)
         print(convert_struc_to_mat(newstruc.ids, newstruc.xx, newstruc.yy))
 
         # Delete the old structures

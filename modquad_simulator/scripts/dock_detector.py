@@ -146,7 +146,7 @@ def detect_dockings():
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # FIXME - Currently need to change this manually#!
-    n = 5 #rospy.get_param('num_used_robots', 9) # !!!!!!
+    n = 2 #rospy.get_param('num_used_robots', 9) # !!!!!!
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     pos_manager = WorldPosManager(n)
