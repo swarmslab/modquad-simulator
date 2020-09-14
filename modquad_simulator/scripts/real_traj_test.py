@@ -33,10 +33,6 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
 
-    # rospy.wait_for_service('/modquad13/update_params')
-    # rospy.loginfo("found update_params service")
-    # update_params = rospy.ServiceProxy('/modquad13/update_params', UpdateParams)
-
     rospy.set_param("kalman/resetEstimation", 1)
 
     rospy.set_param('opmode', 'normal')
@@ -46,31 +42,28 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     robot_id1 = rospy.get_param('~robot_id', 'modquad')
     rids = [robot_id1]
 
-    #demo_trajectory = rospy.get_param('~demo_trajectory', True)
-    #odom_topic = rospy.get_param('~odom_topic', '/odom')  
-
     tmax = structure.traj_vars.total_dist / speed
 
     # Plotting coeffs
     overtime = 1.0
 
-    # TF publisher
+    # TF publisher - what is this for??
     #tf_broadcaster = tf2_ros.TransformBroadcaster()
 
     freq = 80.0  # 100hz
     rate = rospy.Rate(freq)
     t = 0
 
-    #odom_mgr = OdometryManager(1, '/vicon/modquad13', start_id=12) # 0-indexed start val
     odom_mgr = OdometryManager(1, '/modquad', start_id=12) # 0-indexed start val
     odom_mgr.subscribe()
 
     # Publish here to control
+    # crazyflie_controller/src/controller.cpp has been modified to subscribe to
+    # this topic, and if we are in the ModQuad state, then the Twist message
+    # from mq_cmd_vel will be passed through to cmd_vel
+    # TODO: modify so that we publish to all modules in the struc instead of
+    # single hardcoded one
     velpub = rospy.Publisher('/modquad13/mq_cmd_vel', Twist, queue_size=100)
-
-    # # Takeoff service
-    # rospy.loginfo("Taking off, wait a couple of seconds.")
-    # takeoff_services = [rospy.ServiceProxy('/modquad13/takeoff', Empty)]
 
     # Publish to robot
     msg = Twist()
@@ -83,6 +76,8 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     msg.linear.z = 0 # Thrust ranges 10000 - 60000
     msg.angular.z = 0 # yaw rate
 
+    # Start by sending NOPs so that we have known start state
+    # Useful for debugging and safety
     t = 0
     while t < 5:
         t += 1.0 / freq
@@ -91,11 +86,6 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
             rospy.loginfo("Sending zeros at t = {}".format(t))
         rate.sleep()
 
-    # # takeoff for all robots
-    # rospy.loginfo("Request takeoff")
-    # for takeoff in takeoff_services:
-    #     takeoff()
-
     # shutdown
     rospy.on_shutdown(landing)
 
@@ -103,30 +93,31 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     rospy.sleep(1)
     structure.state_vector = odom_mgr.get_new_state(0)
 
+    """
+    THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
+    YOU MUST PAIR THIS WITH MODIFIED CRAZYFLIE_CONTROLLER/SRC/CONTROLLER.CPP
+    AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
+    """
     tstart = rospy.get_time()
     t = 0
     rospy.loginfo("Start Control")
-    while not rospy.is_shutdown(): # and t < overtime*tmax + 1.0 / freq:
+    while not rospy.is_shutdown():
+        # Update time
         t = rospy.get_time() - tstart
 
-        # Simulate, obtain new state and state derivative
+        # Obtain new state from VICON
         structure.state_vector = odom_mgr.get_new_state(0)
-        #rospy.loginfo(structure.state_vector[:3])
-
-        # print(structure.state_vector)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
 
-        # Overwrite for hover
-        #desired_state[0] = [6.3, 0, 0.8] #structure.state_vector[:3]
-
-        # # Get new control inputs
+        # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
                 position_controller(structure, desired_state)
 
-        # # Convert thrust to PWM range
+        # Convert thrust to PWM range
         thrust = convert_thrust_newtons_to_pwm(thrust_newtons)
  
+        # Update message content
         msg.linear.x  = pitch # pitch [-30, 30] deg
         msg.linear.y  = roll  # roll [-30, 30] deg
         msg.linear.z  = thrust # Thrust ranges 10000 - 60000
@@ -139,11 +130,10 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
                                             np.array(desired_state[0]), 
                                             np.array(structure.state_vector[:3])))
 
-        #t += 1.0 / freq
-
+        # Send control message
         velpub.publish(msg)
 
-        # The sleep is to make the simulation look like it would in real life
+        # The sleep preserves sending rate
         rate.sleep()
 
 def landing():
@@ -176,15 +166,14 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
 
 if __name__ == '__main__':
     print("starting simulation")
-#,[x,y-0.5,z-0.5],
-#                                            [x+1,y,z],[x,y+1,z],
-#                                            [x,y,z],[x,y,0.1]
+
+    # The place, according to mocap, where robot will start
     x = 6.68 # 6.3
     y = 0.64 #-1.0
     z = 0.00 # 0.5
 
     results = test_shape_with_waypts(
-                       structure_gen.rect(1, 1), 
+                       structure_gen.rect(2, 1), 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
                        waypt_gen.helix(radius=0.5, 
                                        rise=1.5, 

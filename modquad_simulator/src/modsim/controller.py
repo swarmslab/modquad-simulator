@@ -87,13 +87,13 @@ def position_controller(structure, desired_state):
     # ))
     # print("=======================")
 
-    # Effectively, since yaw_des = 0
-    # phi_des   = -r2_acc / g
-    # theta_des =  r1_acc / g
+    # ------------------------------ #
+    # Effectively, since yaw_des = 0 #
+    # phi_des   = -r2_acc / g        #
+    # theta_des =  r1_acc / g        #
     phi_des   = (r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g
     theta_des = (r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g
     psi_des   = yaw_des
-
 
     max_ang   = 20.0
     phi_des   = max(min(phi_des  , max_ang), -max_ang)
@@ -103,12 +103,10 @@ def position_controller(structure, desired_state):
     # Thrust
     thrust = m * g + m * r3_acc
 
-    #import pdb; pdb.set_trace()
-
     # desired thrust and attitude
     return [thrust, phi_des, theta_des, psi_des]
 
-    ###   # Multi mod control params
+    ###   # Multi mod control params - SIMULATOR
     ###   if num_mod > 30: # Not tuned yet
     ###       xyp =   7.0
     ###       xyd =  10.0
