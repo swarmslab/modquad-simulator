@@ -5,7 +5,7 @@ from catkin_pkg.python_setup import generate_distutils_setup
 
 # fetch values from package.xml
 setup_args = generate_distutils_setup(
-    packages=['modsim', 'modquad_sched_interface', 'dockmgr'],
+    packages=['modsim', 'modquad_sched_interface', 'dockmgr', 'middlebox'],
     package_dir={'': 'src'},
 )
 

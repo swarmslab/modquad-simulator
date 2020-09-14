@@ -67,25 +67,25 @@ def dislocate(disloc_msg):
     dislocation_srv = (disloc_msg.x, disloc_msg.y)
     return DislocationResponse()  # Return nothing
 
-def publish_structure_odometry(structure, x, odom_publishers, tf_broadcaster):
-    # Shorten syntax
-    ids, xx, yy = structure.ids, structure.xx, structure.yy
-
-    # publish main robot
-    if len(xx) == 1:
-        main_id = ids
-    else:
-        main_id = ids[0]
-    publish_odom(x, odom_publishers[main_id])
-    publish_transform_stamped(main_id, x, tf_broadcaster)
-
-    # show the other robots
-    if len(xx) > 1:
-        for robot_id, structure_x, structure_y in zip(ids, xx, yy)[1:]:
-            publish_odom_relative(structure_x - xx[0], structure_y - yy[0], 
-                    robot_id, main_id, odom_publishers[robot_id])
-            publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], 
-                    structure_y - yy[0], tf_broadcaster)
+# def publish_structure_odometry(structure, x, odom_publishers, tf_broadcaster):
+#     # Shorten syntax
+#     ids, xx, yy = structure.ids, structure.xx, structure.yy
+# 
+#     # publish main robot
+#     if len(xx) == 1:
+#         main_id = ids
+#     else:
+#         main_id = ids[0]
+#     publish_odom(x, odom_publishers[main_id])
+#     publish_transform_stamped(main_id, x, tf_broadcaster)
+# 
+#     # show the other robots
+#     if len(xx) > 1:
+#         for robot_id, structure_x, structure_y in zip(ids, xx, yy)[1:]:
+#             publish_odom_relative(structure_x - xx[0], structure_y - yy[0], 
+#                     robot_id, main_id, odom_publishers[robot_id])
+#             publish_transform_stamped_relative(robot_id, main_id, structure_x - xx[0], 
+#                     structure_y - yy[0], tf_broadcaster)
 
 def simulate(structures, trajectory_function, 
         t_step=0.01, speed=1, loc=[1., .0, .0], 

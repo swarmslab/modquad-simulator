@@ -1,10 +1,8 @@
 from scipy import linalg, interpolate as interp
-from math import sin, cos, sqrt, pi
-import matplotlib.pyplot as plt
+from math import sqrt
 import numpy as np
-import sys
 
-class traj_data:
+class min_snap_traj_data:
     """
     This class is used to store the data we only need to compute once
     for the trajectory. Specifically used in min snap trajectory
@@ -17,82 +15,6 @@ class traj_data:
         self.cx = cx
         self.cy = cy
         self.cz = cz
-
-
-def circular_trajectory(t, t_max=30, traj_vars=None, waypts=[], ret_snap=False):
-    """
-    Circular trajectory.
-    :param t_max:
-    :param t:
-    :return:
-    NOTE: this will not use traj_vars, waypts, or ret_snap, but these params included
-            so that all trajectory functions have identical signatures
-    """
-    A = [[1, 0, 0, 0, 0, 0],
-         [1, t_max, t_max ** 2, t_max ** 3, t_max ** 4, t_max ** 5],
-         [0, 1, 0, 0, 0, 0],
-         [0, 1, 2 * t_max, 3 * t_max ** 2, 4 * t_max ** 3, 5 * t_max ** 4],
-         [0, 0, 2, 0, 0, 0],
-         [0, 0, 2, 6 * t_max, 12 * t_max ** 2, 20 * t_max ** 3]]
-
-    b = [0, 1, 0, 0, 0, 0]
-    a = linalg.solve(A, b)
-
-    q = a[0] + a[1] * t + a[2] * (t ** 2) + a[3] * (t ** 3) + a[4] * (t ** 4) + a[5] * (t ** 5)
-    qv = a[1] + 2 * a[2] * t + 3 * a[3] * (t ** 2) + 4 * a[4] * t ** 3 + 5 * a[5] * t ** 4
-    qa = 2 * a[2] + 6 * a[3] * t + 12 * a[4] * t ** 2 + 20 * a[5] * t ** 3
-
-    r = 1.  # radius of the circle
-    pos = [r * cos(2 * pi * q), r * sin(2 * pi * q), 0 * 2.5 * q + 0.2]
-    vel = [-r * 2 * pi * sin(2 * pi * q) * qv, r * 2 * pi * cos(2 * pi * q) * qv, 0 * 2.5 * qv]
-    acc = [r * (-2 * pi * sin(2 * pi * q) * qa - 4 * pi ** 2 * cos(2 * pi * q) * qv ** 2),
-           r * (2 * pi * cos(2 * pi * q) * qa - 4 * pi ** 2 * sin(2 * pi * q) * qv ** 2), 0 * 2.5 * qa]
-
-    yaw = 0
-    yawdot = 0
-    return [pos, vel, acc, yaw, yawdot]
-
-
-def simple_waypt_trajectory(t, t_max=30, traj_vars=None, waypts=[], ret_snap=False):
-    """
-    NOTE: THIS IS EXTREMELY SIMPLE AND NONOPTIMAL
-    :param t: is current time
-    :param t_max: is target time to complete trajectory
-    :param waypts: is numpy matrix of shape [n, 3], where n is # waypts
-    NOTE: this will not use traj_vars or ret_snap, but these params included
-            so that all trajectory functions have identical signatures
-    """
-    if len(waypts) < 2:
-        raise ValueError("Not enough waypoints")
-
-    # Find distances between waypts
-    dists = np.sqrt(np.sum(((np.roll(waypts, 1, axis=0) - waypts)[1:, :]) ** 2, axis=1))
-    dists = np.hstack([np.array([0]), dists])
-    totaldist = np.sum(dists)
-
-    # Target times for each leg of journey
-    times = np.cumsum([dists[i] / totaldist * t_max for i in range(0, len(dists))])
-
-    if t == 0:
-        pos = waypts[0, :]
-        vel = [0, 0, 0]
-        acc = [0, 0, 0]
-    else:
-        ind = 0
-        ind = [i for i in range(0, len(times) - 1) if t < times[i + 1] and t >= times[i]]
-        ind = ind[0]
-        last_waypt = waypts[ind, :]
-        next_waypt = waypts[ind + 1, :]
-        last_time = times[ind]
-        next_time = times[ind + 1]
-        percent_complete = (t - last_time) / (next_time - last_time)
-        pos = last_waypt + percent_complete * next_waypt
-        vel = (next_waypt - last_waypt) / (next_time - last_time)
-        acc = [0, 0, 0]
-
-    yaw = 0
-    yawdot = 0
-    return [pos, vel, acc, yaw, yawdot]
 
 
 def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
@@ -112,72 +34,25 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
         cumdist = np.insert(cumdist, 0, 0) 
 
     # Target times for each waypt
-    #print('vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv')
-    #print('waypts = \n{}'.format(waypts))
-    #print("dists = {}".format(dists))
-    #print("totaldist = {}".format(totaldist))
-    #print("projected time = {}".format(t_max))
-    #print("cumdist = {}".format(cumdist))
-    #for i in range(len(dists)):
-    #    print("\tnt = {}".format(dists[i] / totaldist * t_max))
     times = np.array([0] + [dists[i] / totaldist * t_max for i in range(len(dists))])
     time_inflate = np.ones((times.shape[0]))
-    #if len(times) > 2:
-    #    time_inflate[-3:] *= np.array([1.1, 1.25, 1.3])
-    #    times *= time_inflate
 
     times = np.cumsum(times) + t # Account for time elapsed since sim began
-    #sys.exit(0)
-    #plt.plot(waypts[:, 0], waypts[:, 1])
 
     # Spline the path
     tstep = 1.00
-    #print(times)
-    #print(waypts[:,0])
     newtimes = np.arange(0,t_max+tstep,tstep) + t
 
-    #print("tmax = {}".format(t_max))
-    #print("dist = {}".format(totaldist))
-    #print("speed = {}".format(speed))
-    #print(newtimes)
-    #print(np.transpose(waypts))
-
-    #if use_splines or True:
     xq = interp.pchip_interpolate(times, waypts[:,0], newtimes)
     yq = interp.pchip_interpolate(times, waypts[:,1], newtimes)
     zq = interp.pchip_interpolate(times, waypts[:,2], newtimes)
-    #xq = interp.barycentric_interpolate(times, waypts[:,0], newtimes)
-    #yq = interp.barycentric_interpolate(times, waypts[:,1], newtimes)
-    #zq = interp.barycentric_interpolate(times, waypts[:,2], newtimes)
-    #else:
-    #    print(times)
-    #    print(waypts)
-    #    print(newtimes)
-    #    fxq = interp.interp1d(times, waypts[:,0])
-    #    fyq = interp.interp1d(times, waypts[:,1])
-    #    fzq = interp.interp1d(times, waypts[:,2])
-    #    xq = fxq(newtimes)
-    #    yq = fyq(newtimes)
-    #    zq = fzq(newtimes)
 
     start = waypts[0, :]
     end = waypts[-1, :]
-    #print(times)
-    #print(waypts)
     waypts = np.transpose(np.vstack((xq, yq, zq)))
     waypts[0, :] = start
     waypts[-1, :] = end
     times = np.arange(0,t_max+tstep,tstep) + t
-    #print(waypts)
-    #print(newtimes)
-    #print(xq)
-    #print(yq)
-    #print(zq)
-    #print('--')
-    #print(np.transpose(waypts))
-    #plt.figure()
-    #plt.scatter(waypts[:, 0], waypts[:, 1])
-    #plt.show()
 
     num_eq = len(waypts) - 1
     num_unknown = num_eq * 8
@@ -187,9 +62,7 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
     z = np.zeros((num_unknown, 1))
     rows = np.arange(0, 4)  # First waypoint modifies these rows
     cols = np.arange(0, 8)  # and these columns
-    np.set_printoptions(precision=3)
-    np.set_printoptions(suppress=True)
-    np.set_printoptions(threshold=sys.maxsize)
+
     for i in range(0, len(waypts)):
         T = times[i]
         if i == 0 or i == len(waypts) - 1:
@@ -227,6 +100,7 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
             m2 = -A[1:, :] # The corresponding entries for the next segment
             pvec = np.reshape(A[0, :], [1, 8])
             M[r2[0]:r2[-1] + 1, c2[0]:c2[-1] + 1] = np.vstack([m2, pvec])
+
             # x, y, z are all single columns
             x[rows] = np.transpose(np.reshape(np.array([waypts[i, 0], 0, 0, 0, 0, 0, 0, waypts[i, 0]]), [1, 8]))
             y[rows] = np.transpose(np.reshape(np.array([waypts[i, 1], 0, 0, 0, 0, 0, 0, waypts[i, 1]]), [1, 8]))
@@ -237,8 +111,7 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
     cx = np.linalg.solve(M, x)
     cy = np.linalg.solve(M, y)
     cz = np.linalg.solve(M, z)
-    #print("Projected time at end of planning: {}".format(times[-1]-times[0]))
-    return traj_data(times, dists, totaldist, waypts, cx, cy, cz)
+    return min_snap_traj_data(times, dists, totaldist, waypts, cx, cy, cz)
 
 def min_snap_trajectory(t, speed=1, traj_vars=None, waypts=None, 
         ret_snap=False, use_splines=True):
@@ -285,14 +158,9 @@ def min_snap_trajectory(t, speed=1, traj_vars=None, waypts=None,
     prev = traj_vars.waypts[ind, :]
     dest = traj_vars.waypts[ind + 1, :]
 
-    #if t == t_max:
-    #    print("prev waypt = {}".format(prev))
-    #    print("dest waypt = {}".format(dest))
-
     pdiff = dest - prev
     leglen = np.sqrt(np.sum(pdiff * pdiff))
     tphase = (leglen / traj_vars.total_dist) * t_max
-    #tdiff = t # tbegin is at t=0
     cind = (ind+1) * 8 - 1
     cind = range(cind-7, cind+1) # array from [cind-7 : cind]
     A = [] # to preserve scope
@@ -314,9 +182,6 @@ def min_snap_trajectory(t, speed=1, traj_vars=None, waypts=None,
                                   traj_vars.cy[cind[0]:cind[-1]+1] , 
                                   traj_vars.cz[cind[0]:cind[-1]+1]], axis=1))
     res = np.dot(A, coeffs)
-    #print("At t = {:03f}, we multiply: ".format(t))
-    #print(A)
-    #print(coeffs)
     if ret_snap:
         return res[4,:]
     else:
@@ -325,7 +190,5 @@ def min_snap_trajectory(t, speed=1, traj_vars=None, waypts=None,
         acc = res[2,:]
         yaw = 0
         yawdot = 0
-        #print("\tAt t = {:03f}, pos = {}, vel = {}, acc = {}".format(t, pos, vel, acc))
-        #print('---')
         return [pos, vel, acc, yaw, yawdot]
 

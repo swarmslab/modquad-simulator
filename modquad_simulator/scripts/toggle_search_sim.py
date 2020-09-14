@@ -1,4 +1,5 @@
 #!/usr/bin/env python 
+
 import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist
@@ -82,7 +83,7 @@ def simulate(structure, trajectory_function, sched_mset,
     forces_log = []
     pos_err_log = [0,0,0]
 
-    demo_trajectory = rospy.get_param('~demo_trajectory', True)
+    demo_trajectory = rospy.get_param('~demo_trajectory', False)
 
     odom_topic = rospy.get_param('~odom_topic', '/odom')  
     imu_topic  = rospy.get_param('~imu_topic', '/imu')  
@@ -159,6 +160,8 @@ def simulate(structure, trajectory_function, sched_mset,
 
     residual = []
 
+    thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
+
     #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
     while t < overtime*tmax + 1.0 / freq:
         t += 1. / freq
@@ -190,6 +193,11 @@ def simulate(structure, trajectory_function, sched_mset,
                         F_single, M_single, structure,
                         en_motor_sat, en_fail_rotor_act, 
                         ramp_rotor_set, ramp_factor)
+
+        # Add noise to F_structure, M_structure
+        print(F_structure)
+        #F_structure += np.random.normal(loc=0, scale=0.025, size=F_structure.shape)
+        #M_structure += np.random.normal(loc=0, scale=0.025, size=F_structure.shape)
 
         en_fail_rotor_act = False
 
@@ -404,7 +412,7 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(3, 4), 
+                       structure_gen.rect(1, 1), 
                        #structure_gen.airplane(5,5,3),
                        waypt_gen.helix(radius=2.5, rise=1, num_circ=2),
                        #waypt_gen.line([0,0,0],[1,1,1]),

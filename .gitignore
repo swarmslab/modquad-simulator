@@ -116,3 +116,6 @@ generated.rviz
 
 # Gurobi scheduler files
 mqscheduler/
+
+# Ignore logs
+*log*md

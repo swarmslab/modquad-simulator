@@ -2,7 +2,7 @@
 
     <arg name="model"/>
     <arg name="config_path"/>
-    <arg name="uri" default="radio://0/100/2M/0xE7E7E7E7E7"/>
+    <arg name="uri" default="radio://0/80/2M/0xE7E7E7E7E7"/>
     <arg name="cmd_frequency" default="100"/>
     <!--Initial location-->
     <arg name="init_x" default="0"/>
@@ -13,23 +13,65 @@
     <arg name="color_b" default="0.0"/>
     <arg name="color_a" default="1.0"/>
 
+	<arg name="out_cmd_topic" default="cmd_vel"/>
+
+
     <group ns="$(arg model)">
+		<rosparam param="use_lib_control">true</rosparam>
 
-        <!-- Simulator -->
-<!--        <node pkg="modquad_simulator" type="modquad_sim.py" name="modquad_sim" output="screen">-->
-<!--            <param name="~robot_id" value="$(arg model)"/>-->
-<!--            <param name="~init_x" value="$(arg init_x)" type="double"/>-->
-<!--            <param name="~init_y" value="$(arg init_y)" type="double"/>-->
-<!--        </node>-->
+    	<node name="joystick_controller" pkg="crazyflie_demo" type="controller.py" output="screen">
+    	  <param name="use_crazyflie_controller" value="True" />
+    	</node>
 
-        <!--position controller - what is the position controller in controller.py then? -->
+
+       <!-- Simulator -->
+		<!--
+       <node pkg="modquad_simulator" type="modquad_sim.py" name="modquad_sim" output="screen">
+           <param name="~robot_id" value="$(arg model)"/>
+           <param name="~demo_trajectory" value="$(arg demo_trajectory)"/>
+           <param name="~init_x" value="$(arg init_x)" type="double"/>
+           <param name="~init_y" value="$(arg init_y)" type="double"/>
+       </node>
+		-->
+
+       <include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
+         <arg name="uri" value="$(arg uri)" />
+         <arg name="tf_prefix" value="$(arg model)" />
+         <arg name="enable_logging" value="True" />
+       </include>
+
+	   <!-- =========================================================================== -->
+	   <!-- =========================================================================== -->
+	   <!-- =========================================================================== -->
+	   <!-- =========================================================================== -->
+       <!--position controller -->
+	   <!-- we use a MODIFIED version to allow non-conflicting cmd_vel messages -->
+       <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
+           <param name="frame" value="$(arg model)"/>
+           <param name="world" value="worldFrame"/>
+           <rosparam command="load" 
+                 file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
+       </node>
+	   <!-- =========================================================================== -->
+	   <!-- =========================================================================== -->
+	   <!-- =========================================================================== -->
+	   <!-- =========================================================================== -->
+
+	   	<!-- Performs switching between crazyflie_ros cmd_vel and modquad cmd_vel -->
+		<!--
+	   	<node name="middlebox" pkg="modquad_simulator" type="middlebox.py">
+	   	 	<param name="cmd_topic" value="$(arg out_cmd_topic)"/>
+	   	</node>
+		-->
+
+        <!--position controller-->
+<!-- Old setup
         <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
-            <param name="frame" value="$(arg model)"/>
-            <param name="world" value="worldFrame"/>
-            <rosparam command="load" 
-                  file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
+            <param name="frame" value="$(arg model)"/><param name="world" value="worldFrame"/>
+            <rosparam command="load" file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
         </node>
-
+-->
+        <node pkg="tf" type="static_transform_publisher" name="baselink_broadcaster" args="0 0 0 0 0 0 1 world /$(arg model)/base_link 10" />
 
         <!--mesh publisher for rviz visualization-->
         <node pkg="mesh_visualization"

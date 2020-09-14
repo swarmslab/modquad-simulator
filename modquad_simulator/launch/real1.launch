@@ -1,0 +1,44 @@
+<launch>
+    <arg name="uri" default="radio://0/80/2M/E7E7E7E7E7" />
+
+  	<include file="$(find crazyflie_driver)/launch/crazyflie_server.launch" />
+
+    <arg name="frame" default="/modquad13" />
+
+    <param name="num_robots" value="1" type="int"/>
+
+    <arg name="launch_path" value="$(find modquad_simulator)/launch/aux/"/>
+
+    <arg name="joy_dev" default="/dev/input/js0" />
+    <node name="joy" pkg="joy" type="joy_node" output="screen">
+      <param name="dev" value="$(arg joy_dev)" />
+    </node>
+
+
+	<!-- Calls crazyflie_add and starts the controller -->
+    <include file="$(arg launch_path)/modquad.launch">
+        <arg name="model" value="modquad13"/>
+
+        <arg name="init_x" default="0.5"/>
+        <arg name="init_y" default="0.5"/>
+
+        <arg name="color_r" default="1.0"/>
+        <arg name="color_g" default="0.0"/>
+        <arg name="color_b" default="0.0"/>
+    </include>
+
+    <!--Robot Visualization-->
+    <!--<node pkg="tf2_ros" type="static_transform_publisher" name="link1_broadcaster" args="1 0 0 0 0 0 1 world modquad13/base_link"/>-->
+
+  	<!-- run rviz -->
+	<!--
+  	<param name="robot_description" command="$(find xacro)/xacro $(find crazyflie_description)/urdf/crazyflie.urdf.xacro" />
+  	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find crazyflie_demo)/launch/crazyflie_pos.rviz" required="true" />
+	-->
+
+	<!--
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find modquad_simulator)/rviz/one-robot.rviz" required="true"/>
+	-->
+
+
+</launch>

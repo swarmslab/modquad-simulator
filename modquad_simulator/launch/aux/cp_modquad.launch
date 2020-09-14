@@ -1,0 +1,57 @@
+<launch>
+
+    <arg name="model"/>
+    <arg name="config_path"/>
+    <arg name="uri" default="radio://0/80/2M/0xE7E7E7E7E7"/>
+    <arg name="cmd_frequency" default="100"/>
+    <!--Initial location-->
+    <arg name="init_x" default="0"/>
+    <arg name="init_y" default="0"/>
+    <!--color for visualization-->
+    <arg name="color_r" default="1.0"/>
+    <arg name="color_g" default="1.0"/>
+    <arg name="color_b" default="0.0"/>
+    <arg name="color_a" default="1.0"/>
+
+    <group ns="$(arg model)">
+
+       <!-- Simulator -->
+	   <!--
+       <node pkg="modquad_simulator" type="modquad_sim.py" name="modquad_sim" output="screen">
+           <param name="~robot_id" value="$(arg model)"/>
+           <param name="~demo_trajectory" value="$(arg demo_trajectory)"/>
+           <param name="~init_x" value="$(arg init_x)" type="double"/>
+           <param name="~init_y" value="$(arg init_y)" type="double"/>
+       </node>
+	   -->
+
+	  	<include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
+	  	  <arg name="uri" value="$(arg uri)" />
+	  	  <arg name="tf_prefix" value="$(arg model)" />
+	  	  <arg name="enable_logging" value="False" />
+	  	</include>
+	
+       <!--position controller - what is the position controller in controller.py then? -->
+       <node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
+           <param name="frame" value="$(arg model)"/>
+           <param name="world" value="worldFrame"/>
+           <rosparam command="load" 
+                 file="$(find modquad_simulator)/config/crazyflie2_gains.yaml"/>
+       </node>
+
+
+        <!--mesh publisher for rviz visualization-->
+        <node pkg="mesh_visualization"
+              type="mesh_visualization"
+              name="mesh_visualization"
+              output="screen">
+            <param name="mesh_resource" value="package://crazyflie_description/meshes/crazyflie2.dae"/>
+            <param name="color/r" value="$(arg color_r)"/>
+            <param name="color/g" value="$(arg color_g)"/>
+            <param name="color/b" value="$(arg color_b)"/>
+            <param name="color/a" value="$(arg color_a)"/>
+            <remap from="~input" to="odom"/>
+        </node>
+
+    </group>
+</launch>
