@@ -32,10 +32,11 @@ from dockmgr.datatype.WorldPosManager import WorldPosManager
 # Docking vector: this vector represents the element of the triangular matrix of matches
 # The number 1,2,3,4 represents if the connection is up, right, down or left respectively.
 #docking = [0 for _ in range(n * (n - 1) / 2)]
-#manual_docking = [-1 for _ in range(n * (n - 1) / 2)]
 
+def add_offset_to_pair(pair, offset):
+    return (pair[0] + offset, pair[1] + offset)
 
-def compute_docking_array(x, n, docking_d, min_z_dif=0.005):
+def compute_docking_array(x, n, docking_d, min_z_dif=0.005, start_id=1):
     """
     Identifies the pairs of docked robots based on the robot locations. 
     It uses the global variable: docking vector to avoid to remove  attachments that were already-made. 
@@ -77,7 +78,7 @@ def compute_docking_array(x, n, docking_d, min_z_dif=0.005):
             print('------------')
             print('Pairs: {}'.format(pairs))
             print("valid docking index pair {} with params:\n\tdist = {}, tolerance = {}, zdiff = {}, minzdiff = {}".format(
-                (i, j), dist, docking_d, z_diff, min_z_dif))
+                (i+start_id, j+start_id), dist, docking_d, z_diff, min_z_dif))
             print(x)
             print(docking)
 
@@ -121,9 +122,10 @@ def manual_dock_service(manual_dock_srv):
 
 def detect_dockings():
     global pos_manager, n
-    global docking
+    global docking, manual_docking
     rospy.init_node('docking_detector', anonymous=True)
     reset_docking = rospy.set_param('reset_docking', 0)
+
     # service for manual dock
     #rospy.Service('manual_dock', ManualDock, manual_dock_service)
 
@@ -144,13 +146,17 @@ def detect_dockings():
     # Use new parameters
     rospy.set_param('reset_docking', 0)
 
+    rospy.Rate(5).sleep()
+
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # FIXME - Currently need to change this manually#!
     n = 2 #rospy.get_param('num_used_robots', 9) # !!!!!!
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    pos_manager = WorldPosManager(n)
+    start_id = rospy.get_param("start_mod_id", 1)
+    pos_manager = WorldPosManager(n, start_id=start_id)
     docking = [0 for _ in range(int(n * (n - 1) / 2))]
+    manual_docking = [0] #[-1 for _ in range(n * (n - 1) / 2)]
 
     # Gets all robot locations
     pos_manager.subscribe()
@@ -174,13 +180,15 @@ def detect_dockings():
             continue
 
         # Create the package based on odometry
-        docking_array = compute_docking_array(np.array(locations), n, docking_d, min_z_diff)
-        #docking_array = overwrite_manual_docking(docking_array)
+        #docking_array = compute_docking_array(np.array(locations), n, docking_d, min_z_diff, start_id=start_id)
+        docking_array = overwrite_manual_docking(manual_docking)
 
         # Publish
         msg = Int8MultiArray()
         msg.data = docking_array
         dock_pub.publish(msg)
+
+        manual_docking = [4]
 
 if __name__ == '__main__':
     detect_dockings()

@@ -63,7 +63,16 @@ class OdometryManager(object):
         self._poses[robot_id] = odom.pose.pose
         self._twists[robot_id] = odom.twist.twist
 
+    def get_new_states(self):
+        """
+        Returns list of full state for all modules being tracked
+        """
+        return [self.get_new_state(rid) for rid in range(self._start_id, self._start_id + self.n)]
+
     def get_new_state(self, rid):
+        """
+        Return the current state for a specific module
+        """
         if self._locations[0] == None:
             return [0,0,0,0,0,0,0,0,0,0,0,0,0]
         # :param state_vector: 13 x 1, state vector = [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]

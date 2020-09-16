@@ -73,8 +73,10 @@ def simulate(structure, trajectory_function, sched_mset,
 
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
-    #print("Speed = {}".format(speed))
-    rospy.set_param('rotor_map', 2) # So that modquad_torque_control knows which mapping to use
+
+    # So that modquad_torque_control knows which mapping to use
+    rospy.set_param('rotor_map', 2) 
+
     rospy.init_node('modrotor_simulator', anonymous=True)
     robot_id1 = rospy.get_param('~robot_id', 'modquad01')
     rids = [robot_id1]

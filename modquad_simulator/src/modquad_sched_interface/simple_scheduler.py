@@ -8,7 +8,7 @@ from modsim.datatype.structure import Structure
 
 from modquad_sched_interface.interface import convert_modset_to_struc
 
-def lin_assign(mset):
+def lin_assign(mset, start_id=1):
         # Create variables
         S   = [i for i in range(mset.num_mod)] # Module positions
         print(S)

@@ -22,6 +22,8 @@ def convert_modset_to_struc(mset):
     fails = []
     i = 0
     for mid in range(mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
+        print(mset.pi)
+        print(mid)
         loc = np.where(mset.pi == mid)
         x = loc[0][0]
         y = loc[1][0]
