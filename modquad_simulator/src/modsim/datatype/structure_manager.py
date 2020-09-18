@@ -29,9 +29,6 @@ from modsim.util.comm import publish_odom, publish_transform_stamped, \
 from modsim.util.state import init_state, state_to_quadrotor
 from modsim.util.undocking import gen_strucs_from_split, split_srv_input_format
 
-from modquad_simulator.srv import Dislocation, DislocationResponse
-from modquad_simulator.srv import SplitStructure, SplitStructureResponse
-
 from modsim.simulation.ode_integrator import simulation_step
 
 from dockmgr.datatype.ComponentManager import ComponentManager
@@ -39,6 +36,13 @@ from dockmgr.datatype.OdometryManager import OdometryManager
 
 from modquad_sched_interface.interface import convert_modset_to_struc, convert_struc_to_mat
 import modquad_sched_interface.waypt_gen as waypt_gen
+
+# Services 
+from modquad_simulator.srv import Dislocation, DislocationResponse
+from modquad_simulator.srv import SplitStructure, SplitStructureResponse
+from modquad_simulator.srv import NewParams, NewParamsRequest
+
+
 """
 Uses ComponentManager to manage the structures that are available in
 whatever the current simulation happens to be
@@ -183,6 +187,12 @@ class StructureManager:
 
     def find_struc_of_mod(self, mod_id):
         mod_id = 'modquad{:02d}'.format(mod_id)
+        print(self.strucs)
+        [print(s) for s in self.strucs]
+        [print(s.ids) for s in self.strucs]
+        [print(s.xx)  for s in self.strucs]
+        [print(s.yy)  for s in self.strucs]
+        
         struc = [s for s in self.strucs if mod_id in s.ids] # list of len 1
         return struc[0] # Return structure obj containing the module
 
@@ -192,7 +202,7 @@ class StructureManager:
         :param struc2: structure containing ids_pair[1]
         :param ids_pair: tuple of non-stringified mod ids specifying the join
         """
-        dirs = {1: 'right', 2: 'up', 3: 'left', 4: 'down'}
+        dirs = {1: 'right', 2: 'up', 4: 'left', 3: 'down'}
         print("Joining the pair {}, ({} and {}) in adj dir {}".format(
             ids_pair, struc1.ids, struc2.ids, dirs[direction]))
 
@@ -247,11 +257,11 @@ class StructureManager:
             yy2 += delta_y #(y1 + params.cage_width + ydiff)
             #print("new xx2 = {}".format(xx2))
             #print("new yy2 = {}".format(yy2))
-        elif direction == 3:
+        elif direction == 4:
             delta_x = (x1 - params.cage_width) - x2
             xx2 += delta_x #(x1 + params.cage_width - xdiff)
             yy2 += ydiff
-        elif direction == 4:
+        elif direction == 3:
             xx2 += xdiff
             delta_y = (y1 + params.cage_width) - y2
             yy2 += delta_y #(y1 + params.cage_width - ydiff)
@@ -284,6 +294,9 @@ class StructureManager:
         # Delete the old structures
         _, _ = self.del_struc(struc1)
         old_des_states, old_actual_states = self.del_struc(struc2)
+
+        rospy.loginfo("Updating firmware params")
+        newstruc.update_firmware_params()
 
         # Add the new structure and assoc. vars to class instance vars
         self.add_struc(newstruc, old_des_states, old_actual_states)

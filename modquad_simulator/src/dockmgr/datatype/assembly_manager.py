@@ -700,10 +700,12 @@ class AssemblyManager:
         global dirs
         np.set_printoptions(precision=3)
         if self.dockings is None:
+            rospy.loginfo("Init dockings to msg: {}".format(msg))
             self.dockings = np.array(msg.data)
             return
         dockings = np.array(msg.data) - self.dockings
         if np.sum(dockings) == 0:
+            #rospy.loginfo("No dockings reported")
             return
         else:
             #print("HANDLING A DOCKING MSG: {}".format(msg))

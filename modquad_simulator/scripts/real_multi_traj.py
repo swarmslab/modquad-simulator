@@ -47,10 +47,11 @@ def docking_callback(msg):
     if assembler is not None:
         # start_id 1-indexed for handling
         assembler.handle_dockings_msg(struc_mgr, msg, traj_func, t, start_id)
+        rospy.set_param("~docked", True)
     else:
         raise ValueError("Assembler object does not exist")
 
-def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
+def run(traj_vars, t_step=0.01, speed=1):
 
     global struc_mgr, assembler, t, traj_func, start_id
     rospy.loginfo("!!READY!!")
@@ -66,14 +67,11 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     robot_id1 = rospy.get_param('~robot_id', 'modquad')
     rids = [robot_id1]
 
-    tmax = structure.traj_vars.total_dist / speed
+    # tmax = structure.traj_vars.total_dist / speed
 
     # Set up topics
     odom_topic = rospy.get_param('~odom_topic', '/odom')  # '/odom2'
     pos_topic = rospy.get_param('world_pos_topic', '/odom')  
-
-    # Subscribe to /dockings so that you can tell when to combine structures
-    rospy.Subscriber('/dockings', Int8MultiArray, docking_callback) 
 
     # TF publisher - what is this for??
     tf_broadcaster = tf2_ros.TransformBroadcaster()
@@ -96,7 +94,7 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     # from mq_cmd_vel will be passed through to cmd_vel
     # TODO: modify so that we publish to all modules in the struc instead of
     # single hardcoded one
-    publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robots) ]
+    publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
 
     # Publish to robot
     msg = Twist()
@@ -124,6 +122,9 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
 
     # Update odom
     rospy.sleep(1)
+
+    structure = struc_mgr.strucs[0]
+    
     structure.state_vector = odom_mgr.get_new_state(0)
 
     """
@@ -141,7 +142,7 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
         # Obtain new state from VICON
         structure.state_vector = odom_mgr.get_new_state(0)
 
-        desired_state = trajectory_function(t, speed, structure.traj_vars)
+        desired_state = traj_func(t, speed, traj_vars)
 
         # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
@@ -186,11 +187,15 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     start_mod_id = 12
     rospy.set_param('start_mod_id', start_mod_id) # 0-indexed
 
+    # Switching to True indicates StructureManager initialized
+    # and onboard control params are updated
+    rospy.set_param('~docked', False)
+
     # Subscribe to /dockings so that you can tell when to combine structures
     rospy.Subscriber('/dockings', Int8MultiArray, docking_callback) 
 
-    trajectory_function = min_snap_trajectory
-    traj_vars = trajectory_function(0, speed, None, wayptset)
+    traj_func = min_snap_trajectory
+    traj_vars = traj_func(0, speed, None, wayptset)
     loc=[0,0,0]
     state_vector = init_state(loc, 0)
 
@@ -216,7 +221,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     [print("    {}".format(pi.astype(np.int64))) for pi in pi_list]
 
     finalpi=np.array([14,13])
-    assembler = AssemblyManager(t, finalpi, trajectory_function)
+    assembler = AssemblyManager(t, finalpi, traj_func)
     assert assembler != None
 
     # Initialize the StructureManager
@@ -231,11 +236,16 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     time.sleep(2)
 
     # Reset dockings for dock_detector
+    rospy.loginfo("Reset docking flag")
     rospy.set_param("reset_docking", 1)
 
-    rospy.loginfo("Spinning")
-    rospy.spin()
-    #run(struc1, trajectory_function, mset, speed=speed)
+    # Wait for structure to be recognized
+    rospy.loginfo("Wait for /dockings callback to update control params")
+    while not rospy.get_param('~docked', False):
+        rospy.Rate(5).sleep()
+    rospy.loginfo("Docked structure entered into StructureManager")
+
+    run(speed=speed, traj_vars=traj_vars)
 
 if __name__ == '__main__':
     print("starting simulation")
@@ -249,14 +259,14 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
-                       waypt_gen.helix(radius=0.5, 
-                                       rise=0.75, 
-                                       num_circ=3, 
-                                       start_pt=[x, y, 0.0]),
-                       #waypt_gen.waypt_set([[x    , y    , 0.0],
-                       #                     [x    , y    , 0.1],
-                       #                     [x    , y    , 0.5],
-                       #                     [x    , y    , 0.8]]),
+                       #waypt_gen.helix(radius=0.5, 
+                       #                rise=0.75, 
+                       #                num_circ=3, 
+                       #                start_pt=[x, y, 0.0]),
+                       waypt_gen.waypt_set([[x    , y    , 0.0],
+                                            [x    , y    , 0.1],
+                                            [x    , y    , 0.5],
+                                            [x    , y    , 0.8]]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
                        #                     [x    , y    , 0.5],

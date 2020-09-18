@@ -1,7 +1,11 @@
+import rospy
+
 import numpy as np
 import itertools
 
 from modsim import params
+
+from modquad_simulator.srv import NewParams, NewParamsRequest
 
 
 class Structure:
@@ -114,3 +118,48 @@ class Structure:
         self.roll = roll
         self.pitch = pitch
         self.yaw = yaw
+
+    def update_firmware_params(self):
+        rospy.loginfo("Starting firmware param update")
+        # Intrinsic parameters for Cx, Cy, and Cz.
+        d = 0.0346
+        nc = len(self.xx)  # number of robots in the component
+
+        # Send new parameter to each robot
+        print("Need to update firmware for {}".format(self.ids))
+        #import pdb; pdb.set_trace()
+        for id_robot, xi, yi in list(zip(self.ids, self.xx, self.yy)):
+            # Compute P_i
+            Sx = np.sign(xi + d * np.array([1, -1, -1, 1]))
+
+            # The minus is added because the crazyflie frame is different.
+            Sy = np.sign(yi + d * np.array([-1, -1, 1, 1]))  
+
+            # Send to dynamic attitude parameters
+            rospy.loginfo('Wait for service /{}/change_dynamics'.format(id_robot))
+            service_name = '/{}/change_dynamics'.format(id_robot)
+            rospy.wait_for_service(service_name)
+            rospy.loginfo('Found service /{}/change_dynamics'.format(id_robot))
+
+            try:
+                change_dynamics = rospy.ServiceProxy(service_name, NewParams)
+                msg = NewParamsRequest()
+                msg.Cx = 2  # Cx
+                msg.Cy = 2  # Cy
+                msg.Cz = nc  # Cz
+
+                msg.S_y1 = Sy[0]
+                msg.S_y2 = Sy[1]
+                msg.S_y3 = Sy[2]
+                msg.S_y4 = Sy[3]
+
+                msg.S_x1 = Sx[0]
+                msg.S_x2 = Sx[1]
+                msg.S_x3 = Sx[2]
+                msg.S_x4 = Sx[3]
+
+                rospy.loginfo('Updating attitude params using: ' + service_name)
+                change_dynamics(msg)
+                rospy.loginfo('Params updated: ' + str(Sx) + ", " + str(Sy))
+            except rospy.ServiceException as e:
+                rospy.logerr("Service call failed: {}".format(e))

@@ -164,6 +164,8 @@ def detect_dockings():
     # FIXME this can be fixed for the same frequency of the odometry
     rate = rospy.Rate(freq)
 
+    iteration = 0
+
     while not rospy.is_shutdown():
         rate.sleep()
         #if rospy.get_param('reset_docking') == 1:
@@ -188,7 +190,10 @@ def detect_dockings():
         msg.data = docking_array
         dock_pub.publish(msg)
 
-        manual_docking = [4]
+        if iteration > 10:
+            manual_docking = [4]
+        else:
+            iteration += 1
 
 if __name__ == '__main__':
     detect_dockings()
