@@ -37,13 +37,73 @@ def position_controller(structure, desired_state):
     # zd  =  14.0
     # zi  =   1.5
 
+    # Single, bottom-framed CF2
+    # xyp =  60.0 #  15.0 
+    # xyd =  85.0 #  18.0 
+    # xyi =   0.2 #   0.05
+    # zp  =   8.0
+    # zd  =  17.0
+    # zi  =   0.5
+
     # Single, framed CF2
-    xyp =  25.0  
-    xyd =  41.0  
+    # xyp =  10.0  
+    # xyd =  5.0  
+    # xyi =  0.01 
+    # zp  =  6.0
+    # zd  = 12.0
+    # zi  =  0.3
+
+    # Single, framed, last attempt
+    # xyp =  2.0  
+    # xyd =  2.0  
+    # xyi =  0.0 
+    # zp  =  3.0
+    # zd  = 10.0
+    # zi  =  1.0
+
+    # No magnet 1x2 structure attempt 1
+    #xyp =  0.0  
+    #xyd =  0.0  
+    #xyi =  2.00
+    #zp  =  1.0
+    #zd  =  1.0
+    #zi  =  35.0
+    
+    # No magnet 1x2 attempt 2
+    xyp =  15.0  
+    xyd =  40.0  
     xyi =   0.01
-    zp  =  10.0
-    zd  =  10.0
-    zi  =   0.25
+    zp  =  15.0
+    zd  =  14.0
+    zi  =   1.5
+
+    # xyp = 10.0  
+    # xyd = 10.0  
+    # xyi =  0.05 
+    # zp  =  3.0
+    # zd  = 12.0
+    # zi  =  0.15
+
+    # xyp =  3.0  
+    # xyd =  6.0  
+    # xyi =  0.01 
+    # zp  =  8.5
+    # zd  = 15.0
+    # zi  =  0.25
+
+    # 1x2 framed CF2 structure
+    # xyp =  10.0  
+    # xyd =  10.0  
+    # xyi =   0.10
+    # zp  =  10.0
+    # zd  =  10.0
+    # zi  =   0.25
+    # xyp =   9.0  
+    # xyd =  18.0  
+    # xyi =   0.1
+    # zp  =  15.0
+    # zd  =  15.0
+    # zi  =   0.5
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
@@ -95,7 +155,7 @@ def position_controller(structure, desired_state):
     theta_des = (r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g
     psi_des   = yaw_des
 
-    max_ang   = 20.0
+    max_ang   = 0.5
     phi_des   = max(min(phi_des  , max_ang), -max_ang)
     theta_des = max(min(theta_des, max_ang), -max_ang)
     psi_des   = max(min(psi_des  , max_ang), -max_ang)

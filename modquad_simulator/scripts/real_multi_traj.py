@@ -2,6 +2,7 @@
 
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 import rospy
 import tf2_ros
@@ -40,7 +41,7 @@ struc_mgr = None
 assembler = None
 t = 0.0
 traj_func = min_snap_trajectory
-start_id = 13 # 1 indexed
+start_id = 14 # 1 indexed
 
 def docking_callback(msg):
     global assembler, struc_mgr, traj_func, t, start_id
@@ -126,6 +127,26 @@ def run(traj_vars, t_step=0.01, speed=1):
     structure = struc_mgr.strucs[0]
     
     structure.state_vector = odom_mgr.get_new_state(0)
+    tlog = []
+    xlog = []
+    ylog = []
+    zlog = []
+
+    vxlog = []
+    vylog = []
+    vzlog = []
+
+    desx = []
+    desy = []
+    desz = []
+
+    desvx = []
+    desvy = []
+    desvz = []
+
+    thrustlog = []
+    rollog = []
+    pitchlog = []
 
     """
     THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
@@ -135,30 +156,78 @@ def run(traj_vars, t_step=0.01, speed=1):
     tstart = rospy.get_time()
     t = 0
     rospy.loginfo("Start Control")
-    while not rospy.is_shutdown():
+    while not rospy.is_shutdown() and t < 8.0:
         # Update time
         t = rospy.get_time() - tstart
+        tlog.append(t)
 
-        # Obtain new state from VICON
+        # Convert the individual new states into structure new state
+        # As approximant, we let the first modules state be used
+        new_states = odom_mgr.get_new_states() # From VICON
+        new_pos = np.array([state[:3] for state in new_states])
+        new_pos = np.mean(new_pos, axis=0).tolist()
+
+        # Update position to be centroid of structure
         structure.state_vector = odom_mgr.get_new_state(0)
+        structure.state_vector[0] = new_pos[0]
+        structure.state_vector[1] = new_pos[1]
+        structure.state_vector[2] = new_pos[2]
+
+        # Add to logs
+        xlog.append(structure.state_vector[0])
+        ylog.append(structure.state_vector[1])
+        zlog.append(structure.state_vector[2])
+
+        #vel = structure.state_vector[3:6]
+        vxlog.append(structure.state_vector[3])
+        vylog.append(structure.state_vector[4])
+        vzlog.append(structure.state_vector[5])
+
+        # Orientation for a single rigid body is constant throughout the body
+
+        # Quaternion is computed using orientation, so that also doesn't need
+        # change
+
+        # Angular velocity also derived from orientation
+
+        # Linear velocity is the same across the rigid body treated as point
+        # mass
 
         desired_state = traj_func(t, speed, traj_vars)
+
+        # Add to logs
+        desx.append(desired_state[0][0])
+        desy.append(desired_state[0][1])
+        desz.append(desired_state[0][2])
+
+        desvx.append(desired_state[1][0])
+        desvy.append(desired_state[1][1])
+        desvz.append(desired_state[1][2])
 
         # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
                 position_controller(structure, desired_state)
 
+        roll = 0.0
+        pitch = 0.0
+        yaw = 0.0
+
+        rollog.append(roll)
+        pitchlog.append(pitch)
+
         # Convert thrust to PWM range
         thrust = convert_thrust_newtons_to_pwm(thrust_newtons)
+        thrustlog.append(thrust)
+
  
         # Update message content
-        msg.linear.x  = pitch # pitch [-30, 30] deg
-        msg.linear.y  = roll  # roll [-30, 30] deg
+        msg.linear.x  = pitch  # pitch [-30, 30] deg
+        msg.linear.y  = roll   # roll [-30, 30] deg
         msg.linear.z  = thrust # Thrust ranges 10000 - 60000
-        msg.angular.z = yaw # yaw rate
+        msg.angular.z = yaw    # yaw rate
 
         if round(t, 2) % 0.5 == 0:
-            rospy.loginfo("[{}] {}".format(t, 
+            rospy.loginfo("[{}] {}".format(round(t, 1), 
                                         np.array([thrust, roll, pitch, yaw])))
             rospy.loginfo("     Des={}, Is={}".format(
                                             np.array(desired_state[0]), 
@@ -168,13 +237,56 @@ def run(traj_vars, t_step=0.01, speed=1):
         # velpub.publish(msg)
         [ p.publish(msg) for p in publishers ]
 
+        #rospy.loginfo("cmd_vel = {}".format(msg))
+
         # The sleep preserves sending rate
         rate.sleep()
+    landing()
+
+    plt.figure()
+    plt.subplot(3,2,1)
+    plt.plot(tlog, xlog, 'r')
+    plt.plot(tlog, desx, 'k')
+    plt.ylabel("X (m)")
+
+    ax1 = plt.subplot(3,2,2)
+    ax1.plot(tlog, vxlog, 'r')
+    ax1.plot(tlog, desvx, 'k')
+    ax1.set_ylabel("X (m/s)")
+    ax2 = ax1.twinx()
+    ax2.plot(tlog, pitchlog, 'c')
+
+    plt.subplot(3,2,3)
+    plt.plot(tlog, ylog, 'g')
+    plt.plot(tlog, desy, 'k')
+    plt.ylabel("Y (m)")
+
+    ax3 = plt.subplot(3,2,4)
+    ax3.plot(tlog, vylog, 'g')
+    ax3.plot(tlog, desvy, 'k')
+    ax3.set_ylabel("Y (m/s)")
+    ax4 = ax3.twinx()
+    ax4.plot(tlog, rollog, 'c' )
+
+    plt.subplot(3,2,5)
+    plt.plot(tlog, zlog, 'b')
+    plt.plot(tlog, desz, 'k')
+    plt.ylabel("Z (m)")
+
+    ax5 = plt.subplot(3,2,6)
+    ax5.plot(tlog, vzlog, 'b')
+    ax5.plot(tlog, desvz, 'k')
+    ax5.set_ylabel("Z (m/s)")
+    ax6 = ax5.twinx()
+    ax6.plot(tlog, thrustlog, 'c' )
+
+
+    plt.show()
 
 def landing():
     prefix = 'modquad'
     n = rospy.get_param("num_robots", 2)
-    land_services = [rospy.ServiceProxy('/modquad{:02d}/land'.format(mid), Empty) for mid in range(13, 13 + n)]
+    land_services = [rospy.ServiceProxy('/modquad{:02d}/land'.format(mid), Empty) for mid in range(start_id, start_id + n)]
     for land in land_services:
         land()
     rospy.sleep(5)
@@ -184,7 +296,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
 
     global assembler, struc_mgr, traj_func, t, start_id
     # Need to call before reset_docking to ensure it gets right start_id
-    start_mod_id = 12
+    start_mod_id = start_id-1 # 0-indexed
     rospy.set_param('start_mod_id', start_mod_id) # 0-indexed
 
     # Switching to True indicates StructureManager initialized
@@ -201,8 +313,8 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
 
     struc_list = []
     for s in range(num_struc):
-        # Generate the structure
-        mset = structure_gen.rect(1, 1)
+        # Generate the structures of single-robot sizes
+        mset = structure_gen.rect(1, 1) # will be joined by dock_detector
         lin_assign(mset)
         struc = convert_modset_to_struc(mset)
         struc.state_vector = state_vector
@@ -220,7 +332,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     print("Structures Used: ")
     [print("    {}".format(pi.astype(np.int64))) for pi in pi_list]
 
-    finalpi=np.array([14,13])
+    finalpi=np.array([14,15])
     assembler = AssemblyManager(t, finalpi, traj_func)
     assert assembler != None
 
@@ -251,9 +363,9 @@ if __name__ == '__main__':
     print("starting simulation")
 
     # The place, according to mocap, where robot will start
-    x =  6.3#6.68 
-    y = -1.0#0.64 
-    z =  0.5#0.00 
+    x =  4.9 # 6.3#6.68 
+    y = -0.9 #-1.0#0.64 
+    z =  0.0 # 0.5#0.00 
 
     num_struc = 2
     results = test_shape_with_waypts(
@@ -265,8 +377,8 @@ if __name__ == '__main__':
                        #                start_pt=[x, y, 0.0]),
                        waypt_gen.waypt_set([[x    , y    , 0.0],
                                             [x    , y    , 0.1],
-                                            [x    , y    , 0.5],
-                                            [x    , y    , 0.8]]),
+                                            [x    , y    , 0.5]
+                                           ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
                        #                     [x    , y    , 0.5],
@@ -279,6 +391,6 @@ if __name__ == '__main__':
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=1.25, test_id="controls", 
+                       speed=0.05, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

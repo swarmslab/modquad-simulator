@@ -67,7 +67,7 @@ class OdometryManager(object):
         """
         Returns list of full state for all modules being tracked
         """
-        return [self.get_new_state(rid) for rid in range(self._start_id, self._start_id + self.n)]
+        return [self.get_new_state(mid) for mid in range(self.n)]
 
     def get_new_state(self, rid):
         """

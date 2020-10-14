@@ -58,6 +58,7 @@ add_service_files(
   SplitStructure.srv
   NewParams.srv
   SetMotors.srv
+  RotorToggle.srv
 )
 
 ## Generate actions in the 'action' folder

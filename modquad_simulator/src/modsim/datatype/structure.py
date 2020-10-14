@@ -6,6 +6,7 @@ import itertools
 from modsim import params
 
 from modquad_simulator.srv import NewParams, NewParamsRequest
+from modquad_simulator.srv import RotorToggle, RotorToggleRequest
 
 
 class Structure:
@@ -122,18 +123,31 @@ class Structure:
     def update_firmware_params(self):
         rospy.loginfo("Starting firmware param update")
         # Intrinsic parameters for Cx, Cy, and Cz.
-        d = 0.0346
-        nc = len(self.xx)  # number of robots in the component
+        d = 0.0346 # manhattan distance from center of module mass to rotors (m)
+        nc = self.n  # number of robots in the structure
 
         # Send new parameter to each robot
-        print("Need to update firmware for {}".format(self.ids))
-        #import pdb; pdb.set_trace()
+        rospy.loginfo("Need to update firmware for {}".format(self.ids))
+        rospy.loginfo("----")
+        rospy.loginfo("Mods in struc")
+        rospy.loginfo(self.ids)
+        rospy.loginfo(self.xx)
+        rospy.loginfo(self.yy)
         for id_robot, xi, yi in list(zip(self.ids, self.xx, self.yy)):
-            # Compute P_i
-            Sx = np.sign(xi + d * np.array([1, -1, -1, 1]))
+            # Compute P_i 
+            # (pitch)
+            Sx = np.sign(yi + d * np.array([1, -1, -1, 1]))
+            #Sx = np.sign(np.array([1, -1, -1, 1]))
+            rospy.loginfo("{}: xi = {}, new_Sx = {}".format(id_robot, xi, Sx))
+            # modquad13:  0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
+            # modquad14: -0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
 
             # The minus is added because the crazyflie frame is different.
-            Sy = np.sign(yi + d * np.array([-1, -1, 1, 1]))  
+            # (roll)
+            Sy = np.sign(-xi + d * np.array([-1, -1, 1, 1]))  
+            #Sy = np.sign(np.array([-1, -1, 1, 1]))  
+            rospy.loginfo("{}: yi = {}, new_Sy = {}".format(id_robot, yi, Sy))
+            # modquad13: 0.0 + [-0.0346, -0.0346, 0.0346, 0.0346]
 
             # Send to dynamic attitude parameters
             rospy.loginfo('Wait for service /{}/change_dynamics'.format(id_robot))
@@ -144,15 +158,19 @@ class Structure:
             try:
                 change_dynamics = rospy.ServiceProxy(service_name, NewParams)
                 msg = NewParamsRequest()
-                msg.Cx = 2  # Cx
-                msg.Cy = 2  # Cy
+
+                # Update...?
+                msg.Cx =  2  # Cx - unused
+                msg.Cy =  2  # Cy - unused
                 msg.Cz = nc  # Cz
 
+                # Update roll constants
                 msg.S_y1 = Sy[0]
                 msg.S_y2 = Sy[1]
                 msg.S_y3 = Sy[2]
                 msg.S_y4 = Sy[3]
 
+                # Update pitch constants
                 msg.S_x1 = Sx[0]
                 msg.S_x2 = Sx[1]
                 msg.S_x3 = Sx[2]
@@ -160,6 +178,79 @@ class Structure:
 
                 rospy.loginfo('Updating attitude params using: ' + service_name)
                 change_dynamics(msg)
-                rospy.loginfo('Params updated: ' + str(Sx) + ", " + str(Sy))
+                rospy.loginfo('Params updated: PITCH:' + str(Sx) + ", ROLL:" + str(Sy))
+
+                rospy.loginfo("change_dynamics update PITCH = {}".format(
+                    [msg.S_x1, msg.S_x2, msg.S_x3, msg.S_x4]
+                ))
+                rospy.loginfo("change_dynamics update ROLL = {}".format(
+                    [msg.S_y1, msg.S_y2, msg.S_y3, msg.S_y4]
+                ))
+            except rospy.ServiceException as e:
+                rospy.logerr("Service call failed: {}".format(e))
+
+    def update_rotor_toggle(self):
+
+        """
+        Crazyflie Axes are different!!
+            x^ FWD OF CF
+             |
+        <--------> y RIGHT SIDE OF CF
+             |
+             v
+        """
+
+
+        rospy.loginfo("Starting rotor toggle  update")
+        # Intrinsic parameters for Cx, Cy, and Cz.
+        d = 0.0346 # manhattan distance from center of module mass to rotors (m)
+        nc = self.n  # number of robots in the structure
+
+        # Send new parameter to each robot
+        rospy.loginfo("Need to update firmware for {}".format(self.ids))
+        rospy.loginfo("----")
+        rospy.loginfo("Mods in struc")
+        rospy.loginfo(self.ids)
+        rospy.loginfo(self.xx)
+        rospy.loginfo(self.yy)
+        for id_robot, xi, yi in list(zip(self.ids, self.xx, self.yy)):
+            # Compute P_i 
+            # (pitch)
+            Sx = np.sign(yi + d * np.array([1, -1, -1, 1]))
+            rospy.loginfo("{}: xi = {}, new_Sx = {}".format(id_robot, xi, Sx))
+            # modquad13:  0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
+            # modquad14: -0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
+
+            # The minus is added because the crazyflie frame is different.
+            Sy = np.sign(-xi + d * np.array([-1, -1, 1, 1]))  
+            rospy.loginfo("{}: yi = {}, new_Sy = {}".format(id_robot, yi, Sy))
+            # modquad13: 0.0 + [-0.0346, -0.0346, 0.0346, 0.0346]
+
+            enables = [float(not (Sx[i] > 0 and Sy[i] < 0)) for i in range(4)]
+            #[0.0, 0.0, 0.0, 0.0]
+
+            # Send to dynamic attitude parameters
+            rospy.loginfo('Wait for service /{}/toggle_rotors'.format(id_robot))
+            service_name = '/{}/toggle_rotors'.format(id_robot)
+            rospy.wait_for_service(service_name)
+            rospy.loginfo('Found service /{}/toggle_rotors'.format(id_robot))
+
+            try:
+                toggle_rotors = rospy.ServiceProxy(service_name, RotorToggle)
+                msg = RotorToggleRequest()
+
+                # Update rotor toggle constants
+                msg.en_r1 = enables[0]
+                msg.en_r2 = enables[1]
+                msg.en_r3 = enables[2]
+                msg.en_r4 = enables[3]
+
+                rospy.loginfo('Updating attitude params using: ' + service_name)
+                toggle_rotors(msg)
+                rospy.loginfo('RotTog:' + str(enables))
+
+                rospy.loginfo("toggle_rotors update R1-4 = {}".format(
+                    [msg.en_r1, msg.en_r2, msg.en_r3, msg.en_r4]
+                ))
             except rospy.ServiceException as e:
                 rospy.logerr("Service call failed: {}".format(e))
