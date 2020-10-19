@@ -1,0 +1,4 @@
+bool do_enable
+int32 rotor_id
+---
+

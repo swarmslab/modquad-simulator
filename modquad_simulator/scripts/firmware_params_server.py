@@ -5,10 +5,42 @@ import rospy
 from crazyflie_driver.srv import UpdateParams
 from modquad_simulator.srv import NewParams, NewParamsResponse
 from modquad_simulator.srv import RotorToggle, RotorToggleResponse
+from modquad_simulator.srv import SingleRotorToggle, SingleRotorToggleResponse
 from modquad_simulator.srv import SetMotors, SetMotorsResponse
 
-
 # Crazyflie dynamics parameters
+def handle_change_single_rot_en(msg):
+    rospy.loginfo("Changing rotor enable params")
+
+    perform_enable = msg.do_enable
+    rot_id = msg.rotor_id
+
+    rospy.set_param('rotor_toggle/enable_r{}'.format(rot_id), perform_enable)
+
+    if perform_enable:
+        rospy.loginfo("Request enable R{}".format(rot_id))
+    else:
+        rospy.loginfo("Request disable R{}".format(rot_id))
+
+    rospy.loginfo("Wait for update_params service")
+    rospy.wait_for_service('update_params')
+    rospy.loginfo("Found update_params service")
+
+    try:
+        update_params = rospy.ServiceProxy('update_params', UpdateParams)
+        success = update_params( ['rotor_toggle/enable_r{}'.format(rot_id)] )
+
+        # THIS MUST SUCCEED
+        if not success:
+            print("Rotor toggling for single rotor in ModQuad structure failed!")
+            assert success
+        return SingleRotorToggleResponse()
+
+    except rospy.ServiceException as e:
+        rospy.logerr(
+            "Service SingleRotorToggle firmware update failed: {}".format(e))
+
+    return SingleRotorToggleResponse()
 
 def handle_change_rot_en(msg):
     rospy.loginfo("Changing rotor enable params")
@@ -125,6 +157,9 @@ def acquire_params():
 
     rospy.loginfo("Advertise toggle_rotors service")
     rospy.Service('toggle_rotors', RotorToggle, handle_change_rot_en)
+
+    rospy.loginfo("Advertise toggle_single_rotor service")
+    rospy.Service('toggle_single_rotor', SingleRotorToggle, handle_change_single_rot_en)
 
     rospy.loginfo("Advertise motor_timer service")
     rospy.Service('motor_timer', SetMotors, set_motors_srv)

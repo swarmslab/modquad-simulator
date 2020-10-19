@@ -59,6 +59,7 @@ add_service_files(
   NewParams.srv
   SetMotors.srv
   RotorToggle.srv
+  SingleRotorToggle.srv
 )
 
 ## Generate actions in the 'action' folder

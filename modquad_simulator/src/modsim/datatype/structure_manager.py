@@ -295,9 +295,9 @@ class StructureManager:
         _, _ = self.del_struc(struc1)
         old_des_states, old_actual_states = self.del_struc(struc2)
 
-        #rospy.loginfo("Updating firmware params")
-        rospy.loginfo("\tStrucMgr: SKIP Update firmware params")
-        #newstruc.update_firmware_params()
+        rospy.loginfo("Updating firmware params")
+        #rospy.loginfo("\tStrucMgr: SKIP Update firmware params")
+        newstruc.update_firmware_params()
 
         # Add the new structure and assoc. vars to class instance vars
         self.add_struc(newstruc, old_des_states, old_actual_states)

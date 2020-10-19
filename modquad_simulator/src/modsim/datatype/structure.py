@@ -7,6 +7,7 @@ from modsim import params
 
 from modquad_simulator.srv import NewParams, NewParamsRequest
 from modquad_simulator.srv import RotorToggle, RotorToggleRequest
+from modquad_simulator.srv import SingleRotorToggle, SingleRotorToggleRequest
 
 
 class Structure:
@@ -137,7 +138,6 @@ class Structure:
             # Compute P_i 
             # (pitch)
             Sx = np.sign(yi + d * np.array([1, -1, -1, 1]))
-            #Sx = np.sign(np.array([1, -1, -1, 1]))
             rospy.loginfo("{}: xi = {}, new_Sx = {}".format(id_robot, xi, Sx))
             # modquad13:  0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
             # modquad14: -0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
@@ -145,7 +145,6 @@ class Structure:
             # The minus is added because the crazyflie frame is different.
             # (roll)
             Sy = np.sign(-xi + d * np.array([-1, -1, 1, 1]))  
-            #Sy = np.sign(np.array([-1, -1, 1, 1]))  
             rospy.loginfo("{}: yi = {}, new_Sy = {}".format(id_robot, yi, Sy))
             # modquad13: 0.0 + [-0.0346, -0.0346, 0.0346, 0.0346]
 
@@ -189,9 +188,12 @@ class Structure:
             except rospy.ServiceException as e:
                 rospy.logerr("Service call failed: {}".format(e))
 
-    def update_rotor_toggle(self):
+    def toggle_rotors(self, rot_list, disable_rots):
 
         """
+        :param rot_list: list of tuples of ("modquadXY", x_pos, y_pos, rotor_id) to (dis/en)able
+        :param disable_rots: if True, disable rotors in rot_list, else enable
+        
         Crazyflie Axes are different!!
             x^ FWD OF CF
              |
@@ -199,35 +201,21 @@ class Structure:
              |
              v
         """
+        if type(disable_rots) is not bool:
+            raise Exception("Expect disable_rots to be boolean, was {}".format(
+                                                            type(disable_rots)))
+        if (len(rot_list) == 0):
+            rospy.loginfo("No rotors in list to (dis/en)able")
+            return
 
+        if disable_rots:
+            rospy.loginfo("Structure DISabling rotors {}".format(rot_list))
+        else:
+            rospy.loginfo("Structure ENabling rotors {}".format(rot_list))
 
-        rospy.loginfo("Starting rotor toggle  update")
-        # Intrinsic parameters for Cx, Cy, and Cz.
-        d = 0.0346 # manhattan distance from center of module mass to rotors (m)
-        nc = self.n  # number of robots in the structure
-
-        # Send new parameter to each robot
-        rospy.loginfo("Need to update firmware for {}".format(self.ids))
-        rospy.loginfo("----")
-        rospy.loginfo("Mods in struc")
-        rospy.loginfo(self.ids)
-        rospy.loginfo(self.xx)
-        rospy.loginfo(self.yy)
-        for id_robot, xi, yi in list(zip(self.ids, self.xx, self.yy)):
-            # Compute P_i 
-            # (pitch)
-            Sx = np.sign(yi + d * np.array([1, -1, -1, 1]))
-            rospy.loginfo("{}: xi = {}, new_Sx = {}".format(id_robot, xi, Sx))
-            # modquad13:  0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
-            # modquad14: -0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
-
-            # The minus is added because the crazyflie frame is different.
-            Sy = np.sign(-xi + d * np.array([-1, -1, 1, 1]))  
-            rospy.loginfo("{}: yi = {}, new_Sy = {}".format(id_robot, yi, Sy))
-            # modquad13: 0.0 + [-0.0346, -0.0346, 0.0346, 0.0346]
-
-            enables = [float(not (Sx[i] > 0 and Sy[i] < 0)) for i in range(4)]
-            #[0.0, 0.0, 0.0, 0.0]
+        # Send new parameter set to each robot
+        for id_robot, xi, yi, rid in rot_list:
+            enables = [0 if disable_rots else 1 for i in range(4)]
 
             # Send to dynamic attitude parameters
             rospy.loginfo('Wait for service /{}/toggle_rotors'.format(id_robot))
@@ -252,5 +240,52 @@ class Structure:
                 rospy.loginfo("toggle_rotors update R1-4 = {}".format(
                     [msg.en_r1, msg.en_r2, msg.en_r3, msg.en_r4]
                 ))
+            except rospy.ServiceException as e:
+                rospy.logerr("Service call failed: {}".format(e))
+
+    def single_rotor_toggle(self, rot_list, enable_rots):
+
+        """
+        :param rot_list: list of tuples of ("modquadXY", x_pos, y_pos, rotor_id) to (dis/en)able
+        :param disable_rots: if True, disable rotors in rot_list, else enable
+        
+        Crazyflie Axes are different!!
+            x^ FWD OF CF
+             |
+        <--------> y RIGHT SIDE OF CF
+             |
+             v
+        """
+        if type(enable_rots) is not bool:
+            raise Exception("Expect disable_rots to be boolean, was {}".format(
+                                                            type(disable_rots)))
+        if (len(rot_list) == 0):
+            rospy.loginfo("No rotors in list to (dis/en)able")
+            return
+
+        if not enable_rots:
+            rospy.loginfo("Structure DISabling rotors {}".format(rot_list))
+        else:
+            rospy.loginfo("Structure ENabling rotors {}".format(rot_list))
+
+        # Send new parameter set to each robot
+        for id_robot, xi, yi, rid in rot_list:
+            # Send to dynamic attitude parameters
+            rospy.loginfo('Wait for service /{}/toggle_single_rotor'.format(id_robot))
+            service_name = '/{}/toggle_single_rotor'.format(id_robot)
+            rospy.wait_for_service(service_name)
+            rospy.loginfo('Found service /{}/toggle_single_rotor'.format(id_robot))
+
+            try:
+                toggle_single_rotor = rospy.ServiceProxy(service_name, SingleRotorToggle)
+                msg = SingleRotorToggleRequest()
+
+                # Update rotor toggle constants
+                msg.do_enable = enable_rots
+                msg.rotor_id = rid + 1 # 0-index to 1-index
+
+                rospy.loginfo('Toggle Single Rotor with: ' + service_name)
+                toggle_single_rotor(msg)
+                rospy.loginfo("toggle_single_rotor: enable {} -> R{}".format( msg.do_enable, msg.rotor_id ) )
             except rospy.ServiceException as e:
                 rospy.logerr("Service call failed: {}".format(e))

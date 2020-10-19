@@ -70,12 +70,12 @@ def position_controller(structure, desired_state):
     #zi  =  35.0
     
     # No magnet 1x2 attempt 2
-    xyp =  15.0  
-    xyd =  40.0  
-    xyi =   0.01
-    zp  =  15.0
-    zd  =  14.0
-    zi  =   1.5
+    xyp =   3.0  
+    xyd =   3.0  
+    xyi =   0.000
+    zp  =   2.0
+    zd  =   8.0
+    zi  =   0.1
 
     # xyp = 10.0  
     # xyd = 10.0  
@@ -155,7 +155,7 @@ def position_controller(structure, desired_state):
     theta_des = (r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g
     psi_des   = yaw_des
 
-    max_ang   = 0.5
+    max_ang   = 5.0
     phi_des   = max(min(phi_des  , max_ang), -max_ang)
     theta_des = max(min(theta_des, max_ang), -max_ang)
     psi_des   = max(min(psi_des  , max_ang), -max_ang)

@@ -18,7 +18,7 @@ chassis_width = 0.03#m
 # m = 0.036  # mass (in kg) with bottom of cage
 
 #m = 0.036  # mass (in kg) no magnet 1x2 structure
-m = 0.038  # mass (in kg) no magnet 1x2 structure
+m = 0.034  # mass (in kg) no magnet 1x2 structure
 
 #m = 0.04  # mass (in kg) with cage (each is about 0.04kg)
 #m = 0.042  # mass (in kg) with cage and larger battery
