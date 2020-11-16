@@ -29,21 +29,155 @@ def position_controller(structure, desired_state):
     m = params.mass
     g = params.grav
 
-    # Single, unframed CF2
-    # xyp =  15.0  
-    # xyd =  40.0  
-    # xyi =   0.01
-    # zp  =  15.0
-    # zd  =  14.0
-    # zi  =   1.5
+    # Get boolean telling us whether real or sim robots
+    is_sim           = rospy.get_param("is_modquad_sim", True)
+    is_bottom_framed = rospy.get_param("is_modquad_bottom_framed", False)
+    is_unframed      = rospy.get_param("is_modquad_unframed", False)
+    is_strong_rots   = rospy.get_param("is_strong_rots", True)
 
-    # Single, framed CF2
-    xyp =  25.0  
-    xyd =  41.0  
-    xyi =   0.01
-    zp  =  10.0
-    zd  =  10.0
-    zi  =   0.25
+    if is_sim:
+        # Multi mod control params - SIMULATOR
+        if num_mod > 30: # Not tuned yet
+            xyp =   7.0
+            xyd =  10.0
+            xyi =   0.01
+            zp  =   8.0
+            zd  =   5.0
+            zi  =   1.5
+        elif num_mod > 19: # 21-30 mods
+            xyp =  7.0
+            xyd =  20.0
+            xyi =   0.01
+            zp  =  10.0
+            zd  =  14.0
+            zi  =   2.5
+        elif num_mod > 12: # 13-20 mods
+            xyp =  7.0
+            xyd =  25.0
+            xyi =   0.01
+            zp  =  10.0
+            zd  =  14.0
+            zi  =   2.5
+        elif num_mod > 4: # 5-12 mods
+            # xyp =   10.0 
+            # xyd =   10.0 
+            # xyi =    0.01 
+            # zp  =   15.0
+            # zd  =   15.0 
+            # zi  =    1.5 
+            xyp =  15.0 
+            xyd =  30.0 
+            xyi =   0.01 
+            zp  =  15.0
+            zd  =  18.0 
+            zi  =   2.5 
+        # Control gains for 3-4 mods
+        elif num_mod > 3:
+            #xyp =  1.0
+            #xyd =  1.0
+            #xyi =   0.01
+            #zp  =   1.0
+            #zd  =   1.0
+            #zi  =   0.5
+            xyp =  10.0
+            xyd =  40.0
+            xyi =   0.01
+            zp  =  10.0
+            zd  =  30.0
+            zi  =   2.5
+            ##xyp =  29.0
+            ##xyd =  51.0
+            ##xyi =   0.01
+            ##zp  =  13.0
+            ##zd  =  18.0
+            ##zi  =   2.5
+        elif num_mod > 2:
+            xyp =  39.0
+            xyd =  91.0
+            xyi =   0.01
+            zp  =  13.0
+            zd  =  18.0
+            zi  =   0.01#2.5
+        elif num_mod == 2:
+            xyp =  30.0
+            xyd =  85.0
+            xyi =   0.01
+            zp  =  10.0
+            zd  =  18.0
+            zi  =   0.01
+        else: # Single module
+            #xyp =  9.0
+            #xyd = 18.0
+            #xyi =  0.01
+            xyp =  45.0   # 17.0
+            xyd =  50.0   # 99.0
+            xyi =   0.01  #  0.1 
+            zp  =   9.0   #  9.0
+            zd  =  18.0   # 18.0
+            zi  =   0.01  #  2.5
+
+    elif is_unframed: # REAL Single, unframed CF2
+        if not is_strong_rots:
+            xyp =  15.0  
+            xyd =  40.0  
+            xyi =   0.01
+            zp  =  15.0
+            zd  =  14.0
+            zi  =   1.5
+        else:
+            xyp =  38.0  
+            xyd =  38.0  
+            xyi =   0.03
+            zp  =   3.5
+            zd  =   3.0
+            zi  =   0.03
+        
+    elif is_bottom_framed: # Single, bottom-framed CF2
+        xyp =  60.0 #  15.0 
+        xyd =  85.0 #  18.0 
+        xyi =   0.2 #   0.05
+        zp  =   8.0
+        zd  =  17.0
+        zi  =   0.5
+    else: # No Magnet, real robots
+        if num_mod == 2: # 2x1
+            xyp =  25.0  
+            xyd =  30.0  
+            xyi =   0.02
+            zp  =   9.0
+            zd  =   8.0
+            zi  =   0.2
+        elif num_mod == 3: # 1x3
+            xyp =  50.0
+            xyd =  35.0
+            xyi =   0.03
+            zp  =  14.0
+            zd  =  15.0
+            zi  =   0.1
+        elif num_mod >= 4: # 2x2
+            if not is_strong_rots:
+                xyp =  18.0  
+                xyd =  18.0  
+                xyi =   0.03
+                zp  =   2.5
+                zd  =   3.0
+                zi  =   0.05
+                #xyp =  15.0  
+                #xyd =  40.0  
+                #xyi =   0.01
+                #zp  =  15.0
+                #zd  =  14.0
+                #zi  =   1.5
+            else:
+                xyp =   8.0  
+                xyd =   8.0  
+                xyi =   0.01
+                zp  =   2.5
+                zd  =   3.0
+                zi  =   0.05
+
+    max_ang      = 0.1
+    max_yaw_rate = 0.01
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
@@ -95,10 +229,12 @@ def position_controller(structure, desired_state):
     theta_des = (r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g
     psi_des   = yaw_des
 
-    max_ang   = 20.0
+    # Orientation max angle limiting
     phi_des   = max(min(phi_des  , max_ang), -max_ang)
     theta_des = max(min(theta_des, max_ang), -max_ang)
-    psi_des   = max(min(psi_des  , max_ang), -max_ang)
+
+    # Max yaw rate needs more limiting
+    psi_des   = max(min(psi_des  , max_yaw_rate), -max_yaw_rate)
 
     # Thrust
     thrust = m * g + m * r3_acc
@@ -106,89 +242,10 @@ def position_controller(structure, desired_state):
     # desired thrust and attitude
     return [thrust, phi_des, theta_des, psi_des]
 
-    ###   # Multi mod control params - SIMULATOR
-    ###   if num_mod > 30: # Not tuned yet
-    ###       xyp =   7.0
-    ###       xyd =  10.0
-    ###       xyi =   0.01
-    ###       zp  =   8.0
-    ###       zd  =   5.0
-    ###       zi  =   1.5
-    ###   elif num_mod > 19: # 21-30 mods
-    ###       xyp =  7.0
-    ###       xyd =  20.0
-    ###       xyi =   0.01
-    ###       zp  =  10.0
-    ###       zd  =  14.0
-    ###       zi  =   2.5
-    ###   elif num_mod > 12: # 13-20 mods
-    ###       xyp =  7.0
-    ###       xyd =  25.0
-    ###       xyi =   0.01
-    ###       zp  =  10.0
-    ###       zd  =  14.0
-    ###       zi  =   2.5
-    ###   elif num_mod > 4: # 5-12 mods
-    ###       # xyp =   10.0 
-    ###       # xyd =   10.0 
-    ###       # xyi =    0.01 
-    ###       # zp  =   15.0
-    ###       # zd  =   15.0 
-    ###       # zi  =    1.5 
-    ###       xyp =  15.0 
-    ###       xyd =  30.0 
-    ###       xyi =   0.01 
-    ###       zp  =  15.0
-    ###       zd  =  18.0 
-    ###       zi  =   2.5 
-    ###   # Control gains for 3-4 mods
-    ###   elif num_mod > 3:
-    ###       #xyp =  1.0
-    ###       #xyd =  1.0
-    ###       #xyi =   0.01
-    ###       #zp  =   1.0
-    ###       #zd  =   1.0
-    ###       #zi  =   0.5
-    ###       xyp =  10.0
-    ###       xyd =  40.0
-    ###       xyi =   0.01
-    ###       zp  =  10.0
-    ###       zd  =  30.0
-    ###       zi  =   2.5
-    ###       ##xyp =  29.0
-    ###       ##xyd =  51.0
-    ###       ##xyi =   0.01
-    ###       ##zp  =  13.0
-    ###       ##zd  =  18.0
-    ###       ##zi  =   2.5
-    ###   elif num_mod > 2:
-    ###       xyp =  39.0
-    ###       xyd =  91.0
-    ###       xyi =   0.01
-    ###       zp  =  13.0
-    ###       zd  =  18.0
-    ###       zi  =   0.01#2.5
-    ###   elif num_mod == 2:
-    ###       xyp =  30.0
-    ###       xyd =  85.0
-    ###       xyi =   0.01
-    ###       zp  =  10.0
-    ###       zd  =  18.0
-    ###       zi  =   0.01
-    ###   else: # Single module
-    ###       #xyp =  9.0
-    ###       #xyd = 18.0
-    ###       #xyi =  0.01
-    ###       xyp =  45.0   # 17.0
-    ###       xyd =  50.0   # 99.0
-    ###       xyi =   0.01  #  0.1 
-    ###       zp  =   9.0   #  9.0
-    ###       zd  =  18.0   # 18.0
-    ###       zi  =   0.01  #  2.5
-
 def modquad_torque_control(F, M, structure,
                             motor_sat=False, en_fail_rotor=False, 
-                            ramp_rotor_set=[], ramp_factor=[]):
+                            ramp_rotor_set=[], ramp_factor=[],
+                            fail_type=1):
     """
     This function is similar to crazyflie_motion, but it is made for modular robots. So it specifies the dynamics
     of the modular structure. It receives a desired force and moment of a single robot.
@@ -254,12 +311,31 @@ def modquad_torque_control(F, M, structure,
 
     rotor_forces = np.dot(A, [F, M[0], M[1]])  # Not using moment about Z-axis for limits
 
+    # Motor saturation
+    if motor_sat:
+        rotor_forces[rotor_forces > params.maxF / 4] = params.maxF / 4.0
+        rotor_forces[rotor_forces < params.minF / 4] = params.minF / 4.0
+
     # Failing motors -- IDs are 1-indexed, but rotor pos are 0-indexed
     if en_fail_rotor:
         for mf in structure.motor_failure:
             try:
                 ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
-                rotor_forces[4 * (ind) + mf[1]] = 0.0
+
+                if fail_type == 1: # COMPLETE ROTOR FAILURE
+                    rotor_forces[4 * (ind) + mf[1]] = 0.0
+
+                #elif fail_type == 2: # LOWER MAX THRUST
+                #    if rotor_forces[4 * (ind) + mf[1]] >= (params.maxF / 4.0) / 4.0:
+                #        rotor_forces[4 * (ind) + mf[1]] = (params.maxF / 4.0) / 4.0
+                elif fail_type == 2: # HALVE THRUST RANGE
+                    rotor_forces[4 * (ind) + mf[1]] /= 2.0
+
+                elif fail_type == 3: # 1/4TH THRUST RANGE
+                    rotor_forces[4 * (ind) + mf[1]] /= 4.0
+
+                else:
+                    raise Exception("Unknown rotor failure type")
             except:
                 print("")
                 print("Fail rotor real: {}, {}".format(mf[0], mf[1]))
@@ -298,11 +374,6 @@ def modquad_torque_control(F, M, structure,
                 raise Exception("Error ramping rotor up: {} | {}".format(
                                                                   rr, ind))
 
-
-    # Motor saturation
-    if motor_sat:
-        rotor_forces[rotor_forces > params.maxF / 4] = params.maxF / 4
-        rotor_forces[rotor_forces < params.minF / 4] = params.minF / 4
 
     # From prop forces to total moments. Equation (1) of the modquad paper (ICRA 18)
     F = np.sum(rotor_forces)

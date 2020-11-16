@@ -1,7 +1,13 @@
+import rospy
+
 import numpy as np
 import itertools
 
 from modsim import params
+
+from modquad_simulator.srv import NewParams, NewParamsRequest
+from modquad_simulator.srv import RotorToggle, RotorToggleRequest
+from modquad_simulator.srv import SingleRotorToggle, SingleRotorToggleRequest
 
 
 class Structure:
@@ -88,7 +94,6 @@ class Structure:
         R = [r for r in range(pi.shape[0])]
         C = [c for c in range(pi.shape[1])]
         RC = [p for p in itertools.product(R,C)]
-        #shape = ';'.join(''.join('%d' % int(x>-1) for x in y) for y in pi)
         shape2 = []
         for r in R:
             for c in C:
@@ -108,12 +113,6 @@ class Structure:
                         for mod in sorted(self.ids))
         else:
             return shape
-        #print(pi)
-        #print(self.ids)
-        #print(self.xx)
-        #print(self.yy)
-        #print("rot_fails: {}".format(self.motor_failure))
-        #print(shape + '_' + rotorstat)
         return shape + '_' + rotorstat
 
     def update_control_params(self, thrust_newtons, roll, pitch, yaw):
@@ -121,3 +120,173 @@ class Structure:
         self.roll = roll
         self.pitch = pitch
         self.yaw = yaw
+
+    def update_firmware_params(self):
+        rospy.loginfo("Starting firmware param update")
+        # Intrinsic parameters for Cx, Cy, and Cz.
+        d = 0.0346 # manhattan distance from center of module mass to rotors (m)
+        nc = self.n  # number of robots in the structure
+
+        # Send new parameter to each robot
+        rospy.loginfo("Need to update firmware for {}".format(self.ids))
+        rospy.loginfo("----")
+        rospy.loginfo("Mods in struc")
+        rospy.loginfo(self.ids)
+        rospy.loginfo(self.xx)
+        rospy.loginfo(self.yy)
+        for id_robot, xi, yi in list(zip(self.ids, self.xx, self.yy)):
+            # Compute P_i 
+            # (pitch)
+            Sx = np.sign(yi + d * np.array([1, -1, -1, 1]))
+            rospy.loginfo("{}: xi = {}, new_Sx = {}".format(id_robot, xi, Sx))
+            # modquad13:  0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
+            # modquad14: -0.058 + [0.0346, -0.0346, -0.0346, 0.0346]
+
+            # The minus is added because the crazyflie frame is different.
+            # (roll)
+            Sy = np.sign(-xi + d * np.array([-1, -1, 1, 1]))  
+            rospy.loginfo("{}: yi = {}, new_Sy = {}".format(id_robot, yi, Sy))
+            # modquad13: 0.0 + [-0.0346, -0.0346, 0.0346, 0.0346]
+
+            # Send to dynamic attitude parameters
+            rospy.loginfo('Wait for service /{}/change_dynamics'.format(id_robot))
+            service_name = '/{}/change_dynamics'.format(id_robot)
+            rospy.wait_for_service(service_name)
+            rospy.loginfo('Found service /{}/change_dynamics'.format(id_robot))
+
+            try:
+                change_dynamics = rospy.ServiceProxy(service_name, NewParams)
+                msg = NewParamsRequest()
+
+                # Update...?
+                msg.Cx =  2  # Cx - unused
+                msg.Cy =  2  # Cy - unused
+                msg.Cz = nc  # Cz
+
+                # Update roll constants
+                msg.S_y1 = Sy[0]
+                msg.S_y2 = Sy[1]
+                msg.S_y3 = Sy[2]
+                msg.S_y4 = Sy[3]
+
+                # Update pitch constants
+                msg.S_x1 = Sx[0]
+                msg.S_x2 = Sx[1]
+                msg.S_x3 = Sx[2]
+                msg.S_x4 = Sx[3]
+
+                rospy.loginfo('Updating attitude params using: ' + service_name)
+                change_dynamics(msg)
+                rospy.loginfo('Params updated: PITCH:' + str(Sx) + ", ROLL:" + str(Sy))
+
+                rospy.loginfo("change_dynamics update PITCH = {}".format(
+                    [msg.S_x1, msg.S_x2, msg.S_x3, msg.S_x4]
+                ))
+                rospy.loginfo("change_dynamics update ROLL = {}".format(
+                    [msg.S_y1, msg.S_y2, msg.S_y3, msg.S_y4]
+                ))
+            except rospy.ServiceException as e:
+                rospy.logerr("Service call failed: {}".format(e))
+
+    def toggle_rotors(self, rot_list, disable_rots):
+
+        """
+        :param rot_list: list of tuples of ("modquadXY", x_pos, y_pos, rotor_id) to (dis/en)able
+        :param disable_rots: if True, disable rotors in rot_list, else enable
+        
+        Crazyflie Axes are different!!
+            x^ FWD OF CF
+             |
+        <--------> y RIGHT SIDE OF CF
+             |
+             v
+        """
+        if type(disable_rots) is not bool:
+            raise Exception("Expect disable_rots to be boolean, was {}".format(
+                                                            type(disable_rots)))
+        if (len(rot_list) == 0):
+            rospy.loginfo("No rotors in list to (dis/en)able")
+            return
+
+        if disable_rots:
+            rospy.loginfo("Structure DISabling rotors {}".format(rot_list))
+        else:
+            rospy.loginfo("Structure ENabling rotors {}".format(rot_list))
+
+        # Send new parameter set to each robot
+        for id_robot, xi, yi, rid in rot_list:
+            enables = [0 if disable_rots else 1 for i in range(4)]
+
+            # Send to dynamic attitude parameters
+            rospy.loginfo('Wait for service /{}/toggle_rotors'.format(id_robot))
+            service_name = '/{}/toggle_rotors'.format(id_robot)
+            rospy.wait_for_service(service_name)
+            rospy.loginfo('Found service /{}/toggle_rotors'.format(id_robot))
+
+            try:
+                toggle_rotors = rospy.ServiceProxy(service_name, RotorToggle)
+                msg = RotorToggleRequest()
+
+                # Update rotor toggle constants
+                msg.en_r1 = enables[0]
+                msg.en_r2 = enables[1]
+                msg.en_r3 = enables[2]
+                msg.en_r4 = enables[3]
+
+                rospy.loginfo('Updating attitude params using: ' + service_name)
+                toggle_rotors(msg)
+                rospy.loginfo('RotTog:' + str(enables))
+
+                rospy.loginfo("toggle_rotors update R1-4 = {}".format(
+                    [msg.en_r1, msg.en_r2, msg.en_r3, msg.en_r4]
+                ))
+            except rospy.ServiceException as e:
+                rospy.logerr("Service call failed: {}".format(e))
+
+    def single_rotor_toggle(self, rot_list, rot_thrust_cap):
+
+        """
+        :param rot_list: list of tuples of ("modquadXY", x_pos, y_pos, rotor_id) to (dis/en)able
+        :param rot_thrust_cap: if True, change thrust cap
+        
+        Crazyflie Axes are different!!
+            x^ FWD OF CF
+             |
+        <--------> y RIGHT SIDE OF CF
+             |
+             v
+        """
+        if rot_thrust_cap < 0 or rot_thrust_cap > 1:
+            raise Exception("rot_thrust_cap range [0,1], was {}".format(rot_thrust_cap))
+
+        if (len(rot_list) == 0):
+            rospy.loginfo("No rotors in list to (dis/en)able")
+            return
+
+        # if not enable_rots:
+        #     rospy.loginfo("Structure DISabling rotors {}".format(rot_list))
+        # else:
+        #     rospy.loginfo("Structure ENabling rotors {}".format(rot_list))
+
+        # Send new parameter set to each robot
+        for id_robot, xi, yi, rid in rot_list:
+            # Send to dynamic attitude parameters
+            rospy.loginfo('Wait for service /{}/toggle_single_rotor'.format(id_robot))
+            service_name = '/{}/toggle_single_rotor'.format(id_robot)
+            rospy.wait_for_service(service_name)
+            rospy.loginfo('Found service /{}/toggle_single_rotor'.format(id_robot))
+
+            try:
+                toggle_single_rotor = rospy.ServiceProxy(service_name, SingleRotorToggle)
+                msg = SingleRotorToggleRequest()
+
+                # Update rotor toggle constants
+                msg.thrust_cap = rot_thrust_cap
+                msg.rotor_id = rid + 1 # 0-index to 1-index
+
+                rospy.loginfo('Toggle Single Rotor with: ' + service_name)
+                toggle_single_rotor(msg)
+                rospy.loginfo("toggle_single_rotor: new cap {} -> R{}".format(
+                                msg.thrust_cap, msg.rotor_id ) )
+            except rospy.ServiceException as e:
+                rospy.logerr("Service call failed: {}".format(e))

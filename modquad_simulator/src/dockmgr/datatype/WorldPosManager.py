@@ -3,16 +3,19 @@ import tf
 from nav_msgs.msg import Odometry
 
 class WorldPosManager(object):
-    def __init__(self, n, robot_sufij='/modquad'):
+    def __init__(self, n, start_id=0, robot_sufij='/modquad'):
         self.n = n
         self.robot_sufij = robot_sufij
+        self.start_id = start_id
         ### Position in world frame for all robots. Dic{topic: (x,y,z)}
         self._locations = [None for _ in range(n)]
 
     def subscribe(self):
         for i in range(self.n):
             # subscriber
-            rospy.Subscriber(self.robot_sufij + '%02d/world_pos' % (i + 1), Odometry, self._callback_odom)
+            #rospy.Subscriber(self.robot_sufij + '%02d/world_pos' % (i + 1), Odometry, self._callback_odom)
+            rospy.Subscriber(self.robot_sufij + '%02d/odom' % (i + self.start_id + 1), Odometry, self._callback_odom)
+            rospy.loginfo('<WorldPosManager> subscribe to {}'.format(self.robot_sufij + '%02d/odom' % (i + self.start_id + 1)))
 
     def _callback_odom(self, odom):
         # state vector
@@ -26,7 +29,7 @@ class WorldPosManager(object):
         # extract robot id from the topic name
         robot_id = int(topic[len(self.robot_sufij):len(self.robot_sufij) + 2]) - 1
 
-        self._locations[robot_id] = (x, y, z)  # store the position in world frame
+        self._locations[robot_id - self.start_id] = (x, y, z)  # store the position in world frame
 
     def get_locations(self):
         """

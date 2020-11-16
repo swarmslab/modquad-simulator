@@ -7,7 +7,7 @@ from compiled_scheduler.mqmod import mqmod
 from modsim.datatype.structure import Structure
 from modsim import params
 
-def convert_modset_to_struc(mset):
+def convert_modset_to_struc(mset, start_id=0):
     #ids = ['modquad{:02d}'.format(mq.mod_id + 1) for mq in mset.mods]
     #print(mset.pi + 1)
     #xpos = [params.cage_width * float(np.where(mset.pi == mq.mod_id)[1][0]) for mq in mset.mods]
@@ -21,7 +21,9 @@ def convert_modset_to_struc(mset):
     ypos = []
     fails = []
     i = 0
-    for mid in range(mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
+    for mid in range(start_id, start_id+mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
+        #print(mset.pi)
+        #print(mid)
         loc = np.where(mset.pi == mid)
         x = loc[0][0]
         y = loc[1][0]

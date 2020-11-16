@@ -14,8 +14,15 @@ from math import pi
 #    height = 0.012m
 chassis_width = 0.03#m 
 
-#m = 0.032  # weight (in kg) without cage (each is about 0.032kg)
-m = 0.04  # weight (in kg) without cage (each is about 0.04kg)
+#m = 0.032  # mass (in kg) without cage (each is about 0.032kg)
+# m = 0.036  # mass (in kg) with bottom of cage
+
+#m = 0.034  # mass (in kg) no magnet 1x2 structure - mass for SIMULATION ALSO
+m = 0.0345  # mass (in kg) no magnet 1x4 structure, 4 carbon fiber rods
+#m = 0.0335  # mass (in kg) no magnet 4x1 structure
+
+#m = 0.04  # mass (in kg) with cage (each is about 0.04kg)
+#m = 0.042  # mass (in kg) with cage and larger battery
 g = 9.81  # gravitational constant
 # inertia tensor in m^2 kg
 # I = [[1.43e-5, 0, 0],
