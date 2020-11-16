@@ -21,19 +21,19 @@ def convert_modset_to_struc(mset, start_id=0):
     ypos = []
     fails = []
     i = 0
-    for mid in range(mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
-        print(mset.pi)
-        print(mid)
+    for mid in range(start_id, start_id+mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
+        #print(mset.pi)
+        #print(mid)
         loc = np.where(mset.pi == mid)
         x = loc[0][0]
         y = loc[1][0]
-        ids.append('modquad{:02d}'.format(start_id+mid+1))
+        ids.append('modquad{:02d}'.format(mid+1))
         #print("Modid {} is at pi[{}, {}]".format(mid+1, x, y))
         xpos.append(params.cage_width * y)
         ypos.append(params.cage_width * x)
         for rid in range(4):
             if not mset.mods[i].gamma[rid]:
-                fails.append((start_id+mid+1, rid))
+                fails.append((mid+1, rid))
         i += 1
     s =  Structure(ids, xpos, ypos, fails)
     #print(ids)

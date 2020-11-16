@@ -38,7 +38,7 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 
 # Set up for Structure Manager
 t = 0.0
-start_id = 14 # 1 indexed
+start_id = 15 # 1 indexed
 
 def setup_params():
     rospy.set_param("kalman/resetEstimation", 1)
@@ -54,7 +54,7 @@ def run():
     rate = rospy.Rate(freq)
     t = 0
 
-    num_robot = 2
+    num_robot = 1
 
     # Publish here to control
     # crazyflie_controller/src/controller.cpp has been modified to subscribe to
@@ -63,6 +63,8 @@ def run():
     # TODO: modify so that we publish to all modules in the struc instead of
     # single hardcoded one
     publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
+
+    rospy.loginfo("Made publisher: /modquad{:02d}/mq_cmd_vel".format(start_id))
 
     # Publish to robot
     msg = Twist()
@@ -82,7 +84,7 @@ def run():
         t += 1.0 / freq
         [ p.publish(msg) for p in publishers ]
         if round(t, 2) % 1.0 == 0:
-            rospy.loginfo("Sending zeros at t = {}".format(t))
+            rospy.loginfo("Sending zeros at t = {}".format(round(t, 2)))
         rate.sleep()
 
     # Update odom
@@ -93,32 +95,17 @@ def run():
     YOU MUST PAIR THIS WITH MODIFIED CRAZYFLIE_CONTROLLER/SRC/CONTROLLER.CPP
     AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
     """
-    roll   =      0.0
-    pitch  =      0.0
-    yaw    =      0.0
-    thrust =  10000.0
+    roll   =     0.0
+    pitch  =     0.0
+    yaw    =     0.0
+    thrust = 65553.0
 
-    # Generate the structure
-    mset = structure_gen.rect(2,1)
-    lin_assign(mset, reverse=True)
-    struc = convert_modset_to_struc(mset, start_id=13) # start_id 0-indexed
-    pi = convert_struc_to_mat(struc.ids, struc.xx, struc.yy)
-    print("Structure: \n{}".format(pi.astype(np.int64)))
-
+    tstart = rospy.get_time()
     t = 0
-
-    # Update quads' params for structure we are testing
-    struc.update_firmware_params()
-
-    # Have not yet toggled any rotors off
-    not_yet_toggled = True
-
     rospy.loginfo("Start Control")
-
-    time_limit = 10.0 # sec
-    while not rospy.is_shutdown() and t < time_limit:
+    while not rospy.is_shutdown() and t < 10.0:
         # Update time
-        t += (1.0 / freq)
+        t += 1.0/freq
 
         # Update message content
         msg.linear.x  = pitch  # pitch [-30, 30] deg
@@ -128,15 +115,6 @@ def run():
 
         # Send control message
         [ p.publish(msg) for p in publishers ]
-
-        if round(t, 2) > time_limit / 2.0 and not_yet_toggled:
-            not_yet_toggled = False
-
-            # Test turning of lowest-index rotor
-            rot_id = 1 # 0index
-            struc.single_rotor_toggle(
-                [(struc.ids[1], struc.xx[1], struc.yy[1], rot_id)], 
-                rot_thrust_cap=0.7)
 
         # The sleep preserves sending rate
         rate.sleep()

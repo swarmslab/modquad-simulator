@@ -2,25 +2,65 @@
 
 import sys
 import rospy
+
+from std_srvs.srv import Empty, EmptyResponse
+
 from crazyflie_driver.srv import UpdateParams
+
 from modquad_simulator.srv import NewParams, NewParamsResponse
 from modquad_simulator.srv import RotorToggle, RotorToggleResponse
 from modquad_simulator.srv import SingleRotorToggle, SingleRotorToggleResponse
 from modquad_simulator.srv import SetMotors, SetMotorsResponse
 
 # Crazyflie dynamics parameters
+def handle_zero_att_i_gains(msg):
+    # msg is Empty, just used as a trigger
+    rospy.set_param('pid_attitude/roll_ki', 0)
+    rospy.set_param('pid_attitude/pitch_ki', 0)
+    rospy.set_param('pid_attitude/yaw_ki', 0)
+
+    rospy.set_param('pid_rate/roll_ki', 0)
+    rospy.set_param('pid_rate/pitch_ki', 0)
+    rospy.set_param('pid_rate/yaw_ki', 0)
+
+    #rospy.set_param('ctrlINDI/yaw_kp', 0)
+
+    rospy.loginfo("Wait for update_params service")
+    rospy.wait_for_service('update_params')
+    rospy.loginfo("Found update_params service")
+
+    try:
+        update_params = rospy.ServiceProxy('update_params', UpdateParams)
+        success = update_params(
+                    ['pid_attitude/roll_ki', 'pid_attitude/pitch_ki',
+                     'pid_attitude/yaw_ki' , 'pid_rate/roll_ki',
+                     'pid_rate/pitch_ki'   , 'pid_rate/yaw_ki',
+                    ] )
+
+        # THIS MUST SUCCEED
+        if not success:
+            rospy.loginfo("Setting I-Gains to 0 failed!")
+            assert success
+        else:
+            rospy.loginfo('Attitude I-Gains Zeroed Successfully')
+        return EmptyResponse()
+
+    except rospy.ServiceException as e:
+        rospy.logerr(
+            "Service Zero Attitude I-Gains firmware update failed: {}".format(e))
+
 def handle_change_single_rot_en(msg):
     rospy.loginfo("Changing rotor enable params")
 
-    perform_enable = msg.do_enable
+    thrust_cap = msg.thrust_cap
     rot_id = msg.rotor_id
 
-    rospy.set_param('rotor_toggle/enable_r{}'.format(rot_id), perform_enable)
+    rospy.set_param('rotor_toggle/enable_r{}'.format(rot_id), thrust_cap)
 
-    if perform_enable:
-        rospy.loginfo("Request enable R{}".format(rot_id))
-    else:
-        rospy.loginfo("Request disable R{}".format(rot_id))
+    #if perform_enable:
+    #    rospy.loginfo("Request enable R{}".format(rot_id))
+    #else:
+    #    rospy.loginfo("Request disable R{}".format(rot_id))
 
     rospy.loginfo("Wait for update_params service")
     rospy.wait_for_service('update_params')
@@ -151,6 +191,9 @@ def set_motors_srv(msg):
 
 def acquire_params():
     rospy.init_node('firmware_params_server')
+
+    rospy.loginfo("Advertise zero_att_i_gains service")
+    rospy.Service('zero_att_i_gains', Empty, handle_zero_att_i_gains)
 
     rospy.loginfo("Advertise change_dynamics service")
     rospy.Service('change_dynamics', NewParams, handle_change_dym)

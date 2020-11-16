@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 
-import sys
+import numpy as np
+import time
+import matplotlib.pyplot as plt
+
 import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist
-from std_srvs.srv import Empty
-import numpy as np
-import matplotlib.pyplot as plt
+from std_msgs.msg import Int8MultiArray
+from std_srvs.srv import Empty, EmptyRequest
+
+from modsim.datatype.structure import Structure
+from modsim.datatype.structure_manager import StructureManager
+from dockmgr.datatype.disassembly_manager import DisassemblyManager
+from dockmgr.datatype.assembly_manager import AssemblyManager
 
 from crazyflie_driver.srv import UpdateParams
 from threading import Thread
@@ -29,12 +36,15 @@ import modquad_sched_interface.structure_gen as structure_gen
 
 from modquad_sched_interface.simple_scheduler import lin_assign
 
-start_id = 15 # 1-indexed
+# Set up for Structure Manager
+structure = None
+t = 0.0
+traj_func = min_snap_trajectory
+start_id = 14 # 1 indexed
 
-def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
-    global start_id
+def run(traj_vars, t_step=0.01, speed=1):
 
-    rospy.init_node('modrotor_simulator')
+    global t, traj_func, start_id, structure
     rospy.loginfo("!!READY!!")
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
@@ -43,33 +53,25 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
 
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
-    rospy.set_param('is_modquad_sim', False) # For controller.py
-    rospy.set_param('is_modquad_unframed', True) # For controller.py
-    rospy.set_param('is_strong_rots', True) # For controller.py
     rospy.set_param('rotor_map', 2) # So that modquad_torque_control knows which mapping to use
 
     robot_id1 = rospy.get_param('~robot_id', 'modquad')
     rids = [robot_id1]
 
-    tmax = structure.traj_vars.total_dist / speed
+    # Set up topics
+    odom_topic = rospy.get_param('~odom_topic', '/odom')  # '/odom2'
+    pos_topic = rospy.get_param('world_pos_topic', '/odom')  
 
-    # Plotting coeffs
-    overtime = 1.0
+    already_assembling = False
+    ind = 0
 
-    # TF publisher - what is this for??
-    #tf_broadcaster = tf2_ros.TransformBroadcaster()
-
-    freq = 100.0  # 100hz
+    freq = 80.0  # 100hz
     rate = rospy.Rate(freq)
     t = 0
 
-    # 1-indexed
-    if len(sys.argv) == 2:
-        start_id = int(sys.argv[1])
+    num_robot = 2
 
-    num_robot = 1
-
-    odom_mgr = OdometryManager(1, '/modquad', start_id=start_id-1) # 0-indexed start val
+    odom_mgr = OdometryManager(num_robot, '/modquad', start_id=start_id-1) # 0-indexed start val
     odom_mgr.subscribe()
 
     # Publish here to control
@@ -78,7 +80,18 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     # from mq_cmd_vel will be passed through to cmd_vel
     # TODO: modify so that we publish to all modules in the struc instead of
     # single hardcoded one
-    publishers = [rospy.Publisher('/modquad{}/mq_cmd_vel'.format(start_id), Twist, queue_size=100)]
+    publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
+
+    # Zero the attitude I-Gains
+    srv_name_set = ['/modquad{:02d}/zero_att_i_gains'.format(mid) for mid in range(start_id, start_id+num_robot)]
+    zero_att_i_gains_set = [ rospy.ServiceProxy(srv_name, Empty) 
+                             for srv_name in srv_name_set
+                           ]
+    rospy.loginfo('Wait for all zero_att_gains services')
+    [rospy.wait_for_service(srv_name) for srv_name in srv_name_set]
+    rospy.loginfo('Found all zero_att_gains services')
+    msg = EmptyRequest()
+    [zero_att_i_gains(msg) for zero_att_i_gains in zero_att_i_gains_set]
 
     # Publish to robot
     msg = Twist()
@@ -96,7 +109,7 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     t = 0
     while t < 5:
         t += 1.0 / freq
-        publishers[0].publish(msg)
+        [ p.publish(msg) for p in publishers ]
         if round(t, 2) % 1.0 == 0:
             rospy.loginfo("Sending zeros at t = {}".format(t))
         rate.sleep()
@@ -106,18 +119,10 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
 
     # Update odom
     rospy.sleep(1)
+
+    #structure = struc_mgr.strucs[0]
+    
     structure.state_vector = odom_mgr.get_new_state(0)
-
-    """
-    THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
-    YOU MUST PAIR THIS WITH MODIFIED CRAZYFLIE_CONTROLLER/SRC/CONTROLLER.CPP
-    AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
-    """
-    tstart = round(rospy.get_time(), 2)
-    t = 0
-    rospy.loginfo("Start Control")
-
-    pos_log = np.zeros((0,3))
     tlog = []
     xlog = []
     ylog = []
@@ -139,12 +144,33 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     rollog = []
     pitchlog = []
 
-    while not rospy.is_shutdown() and t < 50:
+    """
+    THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
+    YOU MUST PAIR THIS WITH MODIFIED CRAZYFLIE_CONTROLLER/SRC/CONTROLLER.CPP
+    AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
+    """
+    tstart = rospy.get_time()
+    t = 0
+    fault_injected = False
+    rospy.loginfo("Start Control")
+    while not rospy.is_shutdown() and t < 60.0:
         # Update time
-        t = round(rospy.get_time(),2) - tstart
+        t = rospy.get_time() - tstart
         tlog.append(t)
 
+        # Convert the individual new states into structure new state
+        # As approximant, we let the first modules state be used
+        new_states = odom_mgr.get_new_states() # From VICON
+        new_pos = np.array([state[:3] for state in new_states])
+        new_pos = np.mean(new_pos, axis=0).tolist()
+
+        # Update position to be centroid of structure
         structure.state_vector = odom_mgr.get_new_state(0)
+        structure.state_vector[0] = new_pos[0]
+        structure.state_vector[1] = new_pos[1]
+        structure.state_vector[2] = new_pos[2]
+
+        # Add to logs
         xlog.append(structure.state_vector[0])
         ylog.append(structure.state_vector[1])
         zlog.append(structure.state_vector[2])
@@ -154,7 +180,19 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
         vylog.append(structure.state_vector[4])
         vzlog.append(structure.state_vector[5])
 
-        desired_state = trajectory_function(t, speed, structure.traj_vars)
+        # Orientation for a single rigid body is constant throughout the body
+
+        # Quaternion is computed using orientation, so that also doesn't need
+        # change
+
+        # Angular velocity also derived from orientation
+
+        # Linear velocity is the same across the rigid body treated as point
+        # mass
+
+        desired_state = traj_func(t, speed, traj_vars)
+
+        # Add to logs
         desx.append(desired_state[0][0])
         desy.append(desired_state[0][1])
         desz.append(desired_state[0][2])
@@ -166,33 +204,43 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
         # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
                 position_controller(structure, desired_state)
+
         rollog.append(roll)
         pitchlog.append(pitch)
 
         # Convert thrust to PWM range
         thrust = convert_thrust_newtons_to_pwm(thrust_newtons)
-        thrust = min(thrust, 40000)
         thrustlog.append(thrust)
+
  
         # Update message content
-        msg.linear.x  = pitch # pitch [-30, 30] deg
-        msg.linear.y  = roll  # roll [-30, 30] deg
+        msg.linear.x  = pitch  # pitch [-30, 30] deg
+        msg.linear.y  = roll   # roll [-30, 30] deg
         msg.linear.z  = thrust # Thrust ranges 10000 - 60000
-        msg.angular.z = yaw # yaw rate
+        msg.angular.z = yaw    # yaw rate
 
-        if round(t, 2) % 2.0 == 0:
-            rospy.loginfo("[{}] {}".format(round(t,1), 
+        if round(t, 2) % 0.5 == 0:
+            rospy.loginfo("[{}] {}".format(round(t, 1), 
                                         np.array([thrust, roll, pitch, yaw])))
             rospy.loginfo("     Des={}, Is={}".format(
                                             np.array(desired_state[0]), 
                                             np.array(structure.state_vector[:3])))
 
-        # Send control message to all modules
-        publishers[0].publish(msg)
+        # Send control message
+        # velpub.publish(msg)
+        [ p.publish(msg) for p in publishers ]
+
+        # Test fault injection
+        if t > 15.0 and not fault_injected:
+            fault_injected = True
+            rid = 1
+            structure.single_rotor_toggle(
+                [(structure.ids[0], structure.xx[0], structure.yy[0], rid)],
+                rot_thrust_cap=0.9
+            )
 
         # The sleep preserves sending rate
         rate.sleep()
-
     landing()
 
     plt.figure()
@@ -236,61 +284,67 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
     plt.show()
 
 def landing():
-    #prefix = 'modquad'
-    #n = rospy.get_param("num_robots", 1)
-    # land_services = [rospy.ServiceProxy('/modquad{:02d}/land'.format(mid), Empty) for mid in range(13, 13)]
-    # for land in land_services:
-    #     land()
+    prefix = 'modquad'
+    n = rospy.get_param("num_robots", 2)
+    land_services = [rospy.ServiceProxy('/modquad{:02d}/land'.format(mid), Empty) for mid in range(start_id, start_id + n)]
+    for land in land_services:
+        land()
+    rospy.sleep(5)
 
-    land = rospy.ServiceProxy("/modquad{:02d}/land".format(start_id), Empty)
-    land()
-    rospy.sleep(1)
-
-def test_shape_with_waypts(mset, wayptset, speed=1, test_id="", 
+def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="", 
         doreform=False, max_fault=1, rand_fault=False):
 
-    trajectory_function = min_snap_trajectory
-    traj_vars = trajectory_function(0, speed, None, wayptset)
+    global traj_func, t, start_id, structure
+    # Need to call before reset_docking to ensure it gets right start_id
+    start_mod_id = start_id-1 # 0-indexed
+    rospy.set_param('start_mod_id', start_mod_id) # 0-indexed
+
+    traj_func = min_snap_trajectory
+    traj_vars = traj_func(0, speed, None, wayptset)
     loc=[0,0,0]
     state_vector = init_state(loc, 0)
 
-    # Generate the structure
-    lin_assign(mset)
-    struc1 = convert_modset_to_struc(mset)
-    struc1.state_vector = state_vector
-    struc1.traj_vars = traj_vars
+    mset = structure_gen.rect(1, 2)
+    lin_assign(mset, start_id=start_mod_id, reverse=True)
+    structure = convert_modset_to_struc(mset, start_mod_id)
+    structure.state_vector = state_vector
+    structure.traj_vars = traj_vars
 
-    pi = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
-    print("Structure Used: \n{}".format(pi.astype(np.int64)))
+    pi = convert_struc_to_mat(structure.ids, structure.xx, structure.yy)
+    print(pi)
 
     rospy.on_shutdown(landing)
-    run(struc1, trajectory_function, mset, speed=speed)
+
+    rospy.init_node('modrotor_simulator')
+    time.sleep(2)
+
+    # Reset dockings for dock_detector
+    rospy.loginfo("Reset docking flag")
+    rospy.set_param("reset_docking", 1)
+
+    run(speed=speed, traj_vars=traj_vars)
 
 if __name__ == '__main__':
     print("starting simulation")
 
     # The place, according to mocap, where robot will start
-    x = 6.68# 6.3# 4.89  # 
-    y = 0.64#-1.0#-0.92  # 
-    z = 0.5 #0.00# 0.00   
+    x =  6.68 # 4.9#  6.3
+    y =  0.64 #-0.9# -1.0
+    z =  0.00 # 0.0#  0.5
 
+    num_struc = 2
     results = test_shape_with_waypts(
-                       structure_gen.rect(1, 1), 
+                       num_struc, 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
-                       waypt_gen.helix(radius=0.25, 
-                                       rise=0.75, 
-                                       num_circ=3, 
-                                       start_pt=[x, y, 0.0]),
-                       # waypt_gen.waypt_set([[x    , y    , 0.0],
-                       #                      [x    , y    , 0.1],
-                       #                      [x    , y    , 0.5]
-                       #                      #[x    , y    , 0.8],
-                       #                      #[x+1  , y    , 0.8],
-                       #                      #[x    , y    , 0.8],
-                       #                      #[x    , y    , 0.5],
-                       #                      #[x    , y    , 0.1],
-                       #                      #[x    , y    , 0.0]
-                       #                     ]),
+                       #waypt_gen.helix(radius=0.75, 
+                       #                rise=1.0, 
+                       #                num_circ=2, 
+                       #                start_pt=[x, y, 0.0]),
+                       waypt_gen.waypt_set([[x    , y    , 0.0],
+                                            [x    , y    , 0.1],
+                                            [x    , y    , 0.5]
+                                            #[x+1  , y    , 0.5]
+                                           ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
                        #                     [x    , y    , 0.5],
@@ -303,6 +357,6 @@ if __name__ == '__main__':
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=0.05, test_id="controls", 
+                       speed=0.15, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

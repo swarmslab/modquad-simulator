@@ -243,11 +243,11 @@ class Structure:
             except rospy.ServiceException as e:
                 rospy.logerr("Service call failed: {}".format(e))
 
-    def single_rotor_toggle(self, rot_list, enable_rots):
+    def single_rotor_toggle(self, rot_list, rot_thrust_cap):
 
         """
         :param rot_list: list of tuples of ("modquadXY", x_pos, y_pos, rotor_id) to (dis/en)able
-        :param disable_rots: if True, disable rotors in rot_list, else enable
+        :param rot_thrust_cap: if True, change thrust cap
         
         Crazyflie Axes are different!!
             x^ FWD OF CF
@@ -256,17 +256,17 @@ class Structure:
              |
              v
         """
-        if type(enable_rots) is not bool:
-            raise Exception("Expect disable_rots to be boolean, was {}".format(
-                                                            type(disable_rots)))
+        if rot_thrust_cap < 0 or rot_thrust_cap > 1:
+            raise Exception("rot_thrust_cap range [0,1], was {}".format(rot_thrust_cap))
+
         if (len(rot_list) == 0):
             rospy.loginfo("No rotors in list to (dis/en)able")
             return
 
-        if not enable_rots:
-            rospy.loginfo("Structure DISabling rotors {}".format(rot_list))
-        else:
-            rospy.loginfo("Structure ENabling rotors {}".format(rot_list))
+        # if not enable_rots:
+        #     rospy.loginfo("Structure DISabling rotors {}".format(rot_list))
+        # else:
+        #     rospy.loginfo("Structure ENabling rotors {}".format(rot_list))
 
         # Send new parameter set to each robot
         for id_robot, xi, yi, rid in rot_list:
@@ -281,11 +281,12 @@ class Structure:
                 msg = SingleRotorToggleRequest()
 
                 # Update rotor toggle constants
-                msg.do_enable = enable_rots
+                msg.thrust_cap = rot_thrust_cap
                 msg.rotor_id = rid + 1 # 0-index to 1-index
 
                 rospy.loginfo('Toggle Single Rotor with: ' + service_name)
                 toggle_single_rotor(msg)
-                rospy.loginfo("toggle_single_rotor: enable {} -> R{}".format( msg.do_enable, msg.rotor_id ) )
+                rospy.loginfo("toggle_single_rotor: new cap {} -> R{}".format(
+                                msg.thrust_cap, msg.rotor_id ) )
             except rospy.ServiceException as e:
                 rospy.logerr("Service call failed: {}".format(e))

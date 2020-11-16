@@ -8,7 +8,7 @@ import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int8MultiArray
-from std_srvs.srv import Empty
+from std_srvs.srv import Empty, EmptyRequest
 
 from modsim.datatype.structure import Structure
 from modsim.datatype.structure_manager import StructureManager
@@ -39,12 +39,13 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 # Set up for Structure Manager
 struc_mgr = None
 assembler = None
+structure = None
 t = 0.0
 traj_func = min_snap_trajectory
 start_id = 14 # 1 indexed
 
 def docking_callback(msg):
-    global assembler, struc_mgr, traj_func, t, start_id
+    global assembler, struc_mgr, traj_func, t, start_id, structure
     if assembler is not None:
         # start_id 1-indexed for handling
         assembler.handle_dockings_msg(struc_mgr, msg, traj_func, t, start_id)
@@ -54,7 +55,7 @@ def docking_callback(msg):
 
 def run(traj_vars, t_step=0.01, speed=1):
 
-    global struc_mgr, assembler, t, traj_func, start_id
+    global struc_mgr, assembler, t, traj_func, start_id, structure
     rospy.loginfo("!!READY!!")
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
@@ -96,6 +97,17 @@ def run(traj_vars, t_step=0.01, speed=1):
     # TODO: modify so that we publish to all modules in the struc instead of
     # single hardcoded one
     publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
+
+    # Zero the attitude I-Gains
+    srv_name_set = ['/modquad{:02d}/zero_att_i_gains'.format(mid) for mid in range(start_id, start_id+num_robot)]
+    zero_att_i_gains_set = [ rospy.ServiceProxy(srv_name, Empty) 
+                             for srv_name in srv_name_set
+                           ]
+    rospy.loginfo('Wait for all zero_att_gains services')
+    [rospy.wait_for_service(srv_name) for srv_name in srv_name_set]
+    rospy.loginfo('Found all zero_att_gains services')
+    msg = EmptyRequest()
+    [zero_att_i_gains(msg) for zero_att_i_gains in zero_att_i_gains_set]
 
     # Publish to robot
     msg = Twist()
@@ -155,8 +167,9 @@ def run(traj_vars, t_step=0.01, speed=1):
     """
     tstart = rospy.get_time()
     t = 0
+    fault_injected = False
     rospy.loginfo("Start Control")
-    while not rospy.is_shutdown() and t < 30.0:
+    while not rospy.is_shutdown() and t < 60.0:
         # Update time
         t = rospy.get_time() - tstart
         tlog.append(t)
@@ -237,7 +250,14 @@ def run(traj_vars, t_step=0.01, speed=1):
         # velpub.publish(msg)
         [ p.publish(msg) for p in publishers ]
 
-        #rospy.loginfo("cmd_vel = {}".format(msg))
+        # Test fault injection
+        if t > 15.0 and not fault_injected:
+            fault_injected = True
+            rid = 1
+            structure.single_rotor_toggle(
+                [(structure.ids[0], structure.xx[0], structure.yy[0], rid)],
+                rot_thrust_cap=0.9
+            )
 
         # The sleep preserves sending rate
         rate.sleep()
@@ -311,6 +331,11 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     loc=[0,0,0]
     state_vector = init_state(loc, 0)
 
+    mset = structure_gen.rect(1, 4) # will be joined by dock_detector
+    lin_assign(mset)
+    struc = convert_modset_to_struc(mset)
+    struc.state_vector = state_vector
+    struc.traj_vars = traj_vars
     struc_list = []
     for s in range(num_struc):
         # Generate the structures of single-robot sizes
@@ -333,6 +358,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     [print("    {}".format(pi.astype(np.int64))) for pi in pi_list]
 
     finalpi=np.array([14,15])
+    finalpi=np.array([16,17,18,19])
     assembler = AssemblyManager(t, finalpi, traj_func)
     assert assembler != None
 
@@ -363,17 +389,17 @@ if __name__ == '__main__':
     print("starting simulation")
 
     # The place, according to mocap, where robot will start
-    x =  4.9 # 6.3#6.68 
-    y = -0.9 #-1.0#0.64 
-    z =  0.0 # 0.5#0.00 
+    x =  6.68 # 4.9#  6.3
+    y =  0.64 #-0.9# -1.0
+    z =  0.00 # 0.0#  0.5
 
     num_struc = 2
     results = test_shape_with_waypts(
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
-                       #waypt_gen.helix(radius=0.5, 
-                       #                rise=0.75, 
-                       #                num_circ=3, 
+                       #waypt_gen.helix(radius=0.75, 
+                       #                rise=1.0, 
+                       #                num_circ=2, 
                        #                start_pt=[x, y, 0.0]),
                        waypt_gen.waypt_set([[x    , y    , 0.0],
                                             [x    , y    , 0.1],
@@ -392,6 +418,6 @@ if __name__ == '__main__':
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=0.075, test_id="controls", 
+                       speed=0.15, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")
