@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 import numpy as np
 import time
@@ -104,10 +104,10 @@ def run(traj_vars, t_step=0.01, speed=1):
     AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
     """
     t = 0
-    roll   = 0.0
-    pitch  = 0.0
-    yaw    = 0.0
-    thrust = 60000
+    roll   = 30.0
+    pitch  =  0.0
+    yaw    =  0.0
+    thrust =  5000
 
     # Update message content
     msg.linear.x  = pitch  # pitch [-30, 30] deg
@@ -123,6 +123,11 @@ def run(traj_vars, t_step=0.01, speed=1):
 
         # Send control message
         [ p.publish(msg) for p in publishers ]
+
+        #if (t % 5.0  < 0.03):
+        #    #thrust -= 10000
+        #    #msg.linear.z = thrust
+        #    rospy.loginfo("Send thrust {}".format(thrust))
 
         # The sleep preserves sending rate
         rate.sleep()

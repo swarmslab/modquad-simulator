@@ -188,10 +188,10 @@ class StructureManager:
     def find_struc_of_mod(self, mod_id):
         mod_id = 'modquad{:02d}'.format(mod_id)
         print(self.strucs)
-        [print(s) for s in self.strucs]
-        [print(s.ids) for s in self.strucs]
-        [print(s.xx)  for s in self.strucs]
-        [print(s.yy)  for s in self.strucs]
+        # [print(s) for s in self.strucs]
+        # [print(s.ids) for s in self.strucs]
+        # [print(s.xx)  for s in self.strucs]
+        # [print(s.yy)  for s in self.strucs]
         
         struc = [s for s in self.strucs if mod_id in s.ids] # list of len 1
         return struc[0] # Return structure obj containing the module
