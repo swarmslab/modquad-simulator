@@ -35,6 +35,8 @@ def position_controller(structure, desired_state):
     is_unframed      = rospy.get_param("is_modquad_unframed", False)
     is_strong_rots   = rospy.get_param("is_strong_rots", True)
 
+    #import pdb; pdb.set_trace()
+
     if is_sim:
         # Multi mod control params - SIMULATOR
         if num_mod > 30: # Not tuned yet
@@ -171,13 +173,25 @@ def position_controller(structure, desired_state):
             else:
                 xyp =   8.0  
                 xyd =   8.0  
-                xyi =   0.01
-                zp  =   2.5
-                zd  =   3.0
-                zi  =   0.05
+                xyi =   0.0
+                zp  =   1.2
+                zd  =  20.0
+                zi  =   0.0
+                #xyp =  15.0  
+                #xyd =  40.0  
+                #xyi =   0.01
+                #zp  =  15.0
+                #zd  =  14.0
+                #zi  =   1.5
+                #xyp =   8.0  
+                #xyd =   8.0  
+                #xyi =   0.01
+                #zp  =   2.5
+                #zd  =   3.0
+                #zi  =   0.05
 
-    max_ang      = 0.1
-    max_yaw_rate = 0.01
+    max_ang      = 5.0
+    max_yaw_rate = 2.0
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
