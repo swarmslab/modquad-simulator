@@ -119,20 +119,28 @@ def position_controller(structure, desired_state):
             zi  =   0.01  #  2.5
 
     elif is_unframed: # REAL Single, unframed CF2
-        if not is_strong_rots:
-            xyp =  15.0  
-            xyd =  40.0  
-            xyi =   0.01
-            zp  =  15.0
-            zd  =  14.0
-            zi  =   1.5
-        else:
-            xyp =  38.0  
-            xyd =  38.0  
-            xyi =   0.03
-            zp  =   3.5
-            zd  =   3.0
-            zi  =   0.03
+        #if not is_strong_rots:
+        #    xyp =  15.0  
+        #    xyd =  40.0  
+        #    xyi =   0.01
+        #    zp  =  15.0
+        #    zd  =  14.0
+        #    zi  =   1.5
+        #else:
+        #    xyp =  38.0  
+        #    xyd =  38.0  
+        #    xyi =   0.03
+        #    zp  =   3.5
+        #    zd  =   3.0
+        #    zi  =   0.03
+
+	# normal rots
+        xyp =   1.0  
+        xyd =   1.0  
+        xyi =   0.0
+        zp  =   3.0
+        zd  =  15.0
+        zi  =   0.0
         
     elif is_bottom_framed: # Single, bottom-framed CF2
         xyp =  60.0 #  15.0 
