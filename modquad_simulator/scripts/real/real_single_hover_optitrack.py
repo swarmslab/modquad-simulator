@@ -77,6 +77,15 @@ desroll  = []
 despitch = []
 desyaw   = []
 
+def switch_estimator_to_kalman_filter(start_id, num_robot):
+    srv_name_set = ['/modquad{:02d}/switch_to_kalman_filter'.format(mid) for mid in range(start_id, start_id+num_robot)]
+    switch_set = [ rospy.ServiceProxy(srv_name, Empty) for srv_name in srv_name_set ]
+    rospy.loginfo('Wait for all switch_to_kalman_filter services')
+    [rospy.wait_for_service(srv_name) for srv_name in srv_name_set]
+    rospy.loginfo('Found all switch_to_kalman_filter services')
+    msg = EmptyRequest()
+    [switch(msg) for switch in switch_set]
+
 def update_att_ki_gains(start_id, num_robot):
     # Zero the attitude I-Gains
     srv_name_set = ['/modquad{:02d}/zero_att_i_gains'.format(mid) for mid in range(start_id, start_id+num_robot)]
@@ -126,7 +135,7 @@ def update_logs(t, state_vector, desired_state, thrust, roll, pitch, yawrate):
     s_yawlog.append(yawrate)
 
 def init_params(speed):
-    rospy.set_param("kalman/resetEstimation", 1)
+    #rospy.set_param("kalman/resetEstimation", 1)
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
     rospy.set_param('rotor_map', 2) # So that modquad_torque_control knows which mapping to use
@@ -187,7 +196,7 @@ def run(traj_vars, t_step=0.01, speed=1):
 
     global t, traj_func, start_id, structure
 
-    freq = 200.0  # 100hz
+    freq = 80.0  # 100hz
     rate = rospy.Rate(freq)
     t = 0
     ind = 0
@@ -241,6 +250,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     # Update for the 2x2 structure
     #update_att_ki_gains(start_id, num_robot)
     #structure.update_firmware_params()
+    switch_estimator_to_kalman_filter(start_id, num_robot)
 
     for mid in range(start_id, start_id + num_robot):
         rospy.loginfo(

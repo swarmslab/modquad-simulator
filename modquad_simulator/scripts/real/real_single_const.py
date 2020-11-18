@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 import numpy as np
 import time
@@ -50,7 +50,7 @@ def run():
 
     global t, start_id
 
-    freq = 80.0  # 100hz
+    freq = 100.0  # 100hz
     rate = rospy.Rate(freq)
     t = 0
 
@@ -98,7 +98,7 @@ def run():
     roll   =     0.0
     pitch  =     0.0
     yaw    =     0.0
-    thrust = 65553.0
+    thrust = 60000.0
 
     tstart = rospy.get_time()
     t = 0
