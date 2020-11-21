@@ -64,8 +64,14 @@ class Structure:
 
         self.pos_accumulated_error = np.array([0.0, 0.0, 0.0])
         self.att_accumulated_error = np.array([0.0, 0.0, 0.0])
-        self.traj_vars = None    # Populate this
-        self.state_vector = [] # Populate this
+        self.traj_vars         = None # Populate this
+        self.state_vector      = []   # Populate this
+        self.prev_state_vector = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0]) # Populate this
+
+	# error in [x,y,z,phi,theta,yaw]
+        self.error      = np.array([0,0,0,0]) # Populate this
+        self.prev_error = np.array([0,0,0,0]) # Populate this
+	self.prev_time  = 0
 
         # self.inertia_tensor = np.array(params.I)
         try:
