@@ -67,7 +67,8 @@ class PoseManager(object):
             return [0,0,0,0,0,0,0,0,0,0,0,0,0]
         # :param state_vector: 13 x 1, state vector = [x, y, z, xd, yd, zd, qw, qx, qy, qz, p, q, r]
         return [self._locations[rid][0], self._locations[rid][1], self._locations[rid][2], 
-                self._quats[rid][0], self._quats[rid][1], self._quats[rid][2], self._quats[rid][3]]
+                0,0,0,
+                self._quats[rid][0], self._quats[rid][1], self._quats[rid][2], self._quats[rid][3],0,0,0]
 
     def get_poses(self):
         return self._poses

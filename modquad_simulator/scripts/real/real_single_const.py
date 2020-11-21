@@ -50,7 +50,7 @@ def run():
 
     global t, start_id
 
-    freq = 100.0  # 100hz
+    freq = 20.0  # 100hz
     rate = rospy.Rate(freq)
     t = 0
 
@@ -95,7 +95,7 @@ def run():
     YOU MUST PAIR THIS WITH MODIFIED CRAZYFLIE_CONTROLLER/SRC/CONTROLLER.CPP
     AND USE JOYSTICK TO SWITCH TO MODQUAD MODE FOR THESE COMMANDS TO WORK
     """
-    roll   =     0.0
+    roll   =    10.0
     pitch  =     0.0
     yaw    =     0.0
     thrust = 60000.0
@@ -103,7 +103,8 @@ def run():
     tstart = rospy.get_time()
     t = 0
     rospy.loginfo("Start Control")
-    while not rospy.is_shutdown() and t < 10.0:
+    rospy.loginfo("[0] New pitch: {}".format(pitch))
+    while not rospy.is_shutdown() and t < 30.0:
         # Update time
         t += 1.0/freq
 
@@ -115,6 +116,10 @@ def run():
 
         # Send control message
         [ p.publish(msg) for p in publishers ]
+
+	if ( t % 5.0 < 0.05 ):
+		roll -= 3
+		rospy.loginfo("[{}] New pitch: {}".format(round(t, 2), pitch))
 
         # The sleep preserves sending rate
         rate.sleep()
