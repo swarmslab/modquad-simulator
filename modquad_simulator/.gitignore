@@ -2,3 +2,5 @@ figs/
 generated.rviz
 mqscheduler/
 log*md
+src/modsim/util/code
+src/modsim/util/fault_detection.py
