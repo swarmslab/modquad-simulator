@@ -95,7 +95,7 @@ def convert_struc_to_mat(idset, xset, yset):
     #print('+++')
     return struc
 
-def rotpos_to_mat(structure, rot_list):
+def rotpos_to_mat(structure, rot_list, start_id=0):
     """
     rot_list and positions MUST have SAME indexing
     :param rot_list: list of tuples of elements (mod_id, rot_id)
@@ -113,7 +113,7 @@ def rotpos_to_mat(structure, rot_list):
     # Get minx, miny, maxx, maxy based on rot_list
     minx, miny, maxx, maxy = 99999, 99999, -99999, -99999
     for rot in rot_list:
-        mat_idx = np.where(struc_mat == rot[0])
+        mat_idx = np.where(struc_mat == rot[0]+start_id)
         assert (len(mat_idx[0]) == 1), "Mod ID has multiple mappings in X"
         assert (len(mat_idx[1]) == 1), "Mod ID has multiple mappings in Y"
 
@@ -122,12 +122,12 @@ def rotpos_to_mat(structure, rot_list):
 
         # Label each rotor position with its module ID
         if rot[1] == 0:
-            mat[2*x + 1, 2*y    ] = rot[0]
+            mat[2*x + 1, 2*y    ] = rot[0]+start_id
         elif rot[1] == 1:
-            mat[2*x + 1, 2*y + 1] = rot[0]
+            mat[2*x + 1, 2*y + 1] = rot[0]+start_id
         elif rot[1] == 2:
-            mat[2*x    , 2*y + 1] = rot[0]
+            mat[2*x    , 2*y + 1] = rot[0]+start_id
         else: # rot[1] == 3
-            mat[2*x    , 2*y    ] = rot[0]
+            mat[2*x    , 2*y    ] = rot[0]+start_id
 
     return mat

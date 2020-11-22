@@ -29,13 +29,15 @@ from modsim.util.state import init_state, state_to_quadrotor
 from modsim.util.thrust import convert_thrust_newtons_to_pwm
 
 from modsim.util.fault_detection import fault_exists_real,      \
-                                        real_find_suspects
+                                        real_find_suspects,     \
+                                        get_faulty_quadrant_rotors_real
 
 from dockmgr.datatype.PoseManager import PoseManager
 #from dockmgr.datatype.ImuManager import ImuManager
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
-                                              convert_struc_to_mat
+                                              convert_struc_to_mat,    \
+                                              rotpos_to_mat
 
 import modquad_sched_interface.waypt_gen as waypt_gen
 import modquad_sched_interface.structure_gen as structure_gen
@@ -292,7 +294,10 @@ def run(traj_vars, t_step=0.01, speed=1):
         if not fault_detected:
             fault_detected = fault_exists_real(logs)
         if fault_detected:
-            rospy.loginfo("FAULT IS DETECTED")
+            quadrant = get_faulty_quadrant_rotors_real(logs, structure)
+            rotmat = rotpos_to_mat(structure, quadrant, start_id=start_id)
+            rospy.loginfo("FAULT IS DETECTED, SUSPECTS BELOW")
+            print(rotmat)
             break
 
         # Get new desired state
