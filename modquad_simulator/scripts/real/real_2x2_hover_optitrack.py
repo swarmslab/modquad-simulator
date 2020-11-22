@@ -46,7 +46,7 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 structure = None
 t = 0.0
 traj_func = min_snap_trajectory
-start_id = 15 # 1 indexed
+start_id = 16 # 1 indexed
 
 tlog = []
 xlog = []
@@ -56,6 +56,12 @@ zlog = []
 vxlog = []
 vylog = []
 vzlog = []
+
+# circular buffer for velocities
+# MAX_VELBUF_IDX = 1
+# velbuf = np.zeros((MAX_VELBUF_IDX, 6))
+# velbuf_idx = 0
+
 
 desx = []
 desy = []
@@ -155,7 +161,9 @@ def init_params(speed):
     rospy.loginfo("!!READY!!")
     np.set_printoptions(precision=1)
 
-def update_state(pose_mgr, structure, freq):
+def update_state(pose_mgr, structure, freq): # freq computed as 1 / (t - prev_t)
+    #global velbuf, velbuf_idx
+
     # Convert the individual new states into structure new state
     # As approximant, we let the first modules state be used
     new_states = pose_mgr.get_new_states() # From OPTITRACK
@@ -174,13 +182,16 @@ def update_state(pose_mgr, structure, freq):
     structure.state_vector[1] = new_pos[1]
     structure.state_vector[2] = new_pos[2]
 
-    # compute velocities
+    # compute instantaneous velocities
     vels = (structure.state_vector[:3] - structure.prev_state_vector[:3]) / (1.0 / freq)
-    structure.state_vector[3] = vels[0]
-    structure.state_vector[4] = vels[1]
-    structure.state_vector[5] = vels[2]
+    #velbuf[velbuf_idx, 0] = vels[0]
+    #velbuf[velbuf_idx, 1] = vels[1]
+    #velbuf[velbuf_idx, 2] = vels[2]
+    structure.state_vector[3] = vels[0] # np.mean(velbuf[:, 0]) # vx
+    structure.state_vector[4] = vels[1] # np.mean(velbuf[:, 1]) # vy
+    structure.state_vector[5] = vels[2] # np.mean(velbuf[:, 2]) # vz
 
-
+    # compute instantaneous angular velocities
     vels = [0.0, 0.0, 0.0]
     if np.all(structure.prev_state_vector == 0):
         # compute euler angles - RPY roll pitch yaw
@@ -193,9 +204,19 @@ def update_state(pose_mgr, structure, freq):
         # compute angular velocities
         vels = (curr_angs - prev_angs) / (1.0 / freq)
 
-    structure.state_vector[-3] = vels[0]
-    structure.state_vector[-2] = vels[1]
-    structure.state_vector[-1] = vels[2]
+    #velbuf[velbuf_idx, 3] = vels[0] # roll rate
+    #velbuf[velbuf_idx, 4] = vels[1] # pitch rate
+    #velbuf[velbuf_idx, 5] = vels[2] # yaw rate
+    
+    # Update state vector with smoothed linear/angular velocities
+    structure.state_vector[-3] = vels[0] # np.mean(velbuf[:, 3]) # vroll 
+    structure.state_vector[-2] = vels[1] # np.mean(velbuf[:, 4]) # vpitch
+    structure.state_vector[-1] = vels[2] # np.mean(velbuf[:, 5]) # vyaw
+
+    # handle circ buf indexing
+    #velbuf_idx += 1
+    #if velbuf_idx >= MAX_VELBUF_IDX:
+    #    velbuf_idx = 0
 
 def check_for_faults(fault_detected, structure):
     global desx, desy, desz
@@ -216,12 +237,12 @@ def check_for_faults(fault_detected, structure):
 
 def check_to_inject_fault(t, fault_injected, structure):
     # Test fault injection
-    if t > 10.0 and not fault_injected:
+    if t > 20.0 and not fault_injected:
         fault_injected = True
-        rid = 0
+        rid = 2
         structure.single_rotor_toggle(
             [(structure.ids[1], structure.xx[1], structure.yy[1], rid)],
-            rot_thrust_cap=0.0
+            rot_thrust_cap=1.0
         )
         rospy.loginfo("INJECT FAULT")
     return fault_injected
@@ -238,7 +259,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     rate = rospy.Rate(freq)
     t = 0
     ind = 0
-    num_robot = 1
+    num_robot = 4
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
     init_params(speed) # Prints "!!READY!!" to log
@@ -286,8 +307,8 @@ def run(traj_vars, t_step=0.01, speed=1):
         update_state(pose_mgr, structure, freq)
 
     # Update for the 2x2 structure
-    #update_att_ki_gains(start_id, num_robot)
-    #structure.update_firmware_params()
+    update_att_ki_gains(start_id, num_robot)
+    structure.update_firmware_params()
     #switch_estimator_to_kalman_filter(start_id, num_robot)
 
     for mid in range(start_id, start_id + num_robot):
@@ -305,6 +326,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     msg.linear.z  = 0  # Thrust ranges 10000 - 60000
     msg.angular.z = 0  # yaw rate
     pidz_ki = 3500
+    rospy.loginfo("TAKEOFF")
     while not taken_off:
         update_state(pose_mgr, structure, freq)
 
@@ -320,8 +342,7 @@ def run(traj_vars, t_step=0.01, speed=1):
 
         # The sleep preserves sending rate
         rate.sleep()
-
-
+    rospy.loginfo("COMPLETED TAKEOFF")
 
     """
     THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
@@ -330,14 +351,18 @@ def run(traj_vars, t_step=0.01, speed=1):
     """
     tstart = rospy.get_time()
     t = 0
+    prev_t = t
     fault_injected = False
     fault_detected = False
     suspects_initd = False
     rospy.loginfo("Start Control")
-    while not rospy.is_shutdown() and t < 30.0:
+    while not rospy.is_shutdown() and t < 120.0:
         # Update time
+        prev_t = t
         t = rospy.get_time() - tstart
-        update_state(pose_mgr, structure, freq)
+        dt = t - prev_t
+
+        update_state(pose_mgr, structure, 1.0/dt)
 
         # fault_detected = check_for_faults(fault_detected, structure)
         # if fault_detected:
@@ -350,7 +375,7 @@ def run(traj_vars, t_step=0.01, speed=1):
 
         # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
-                position_controller(structure, desired_state, 1.0/freq)
+                position_controller(structure, desired_state, dt)
 
         des_pos  = np.array(desired_state[0])
         is_pos   = structure.state_vector[:3]
@@ -523,12 +548,12 @@ def make_plots():
     ax16 = plt.subplot(3,3,9)
     ax17 = ax16.twinx()
     ax16.plot(tlog, [0 for _ in range(len(tlog))], 'k' )
-    ax17.plot(tlog, s_yawlog, 'c')
-    ax16.plot(tlog, m_yawlog, 'b')
-    ax16.set_ylabel("Meas Yaw (deg), magenta")
-    ax17.set_ylabel("Sent YawR (deg/s), cyan")
-    ax17.set_ylim(-210, 210)
-    ax16.set_ylim(-250, 250)
+    ax16.plot(tlog, s_yawlog, 'c')
+    ax17.plot(tlog, m_yawlog, 'b')
+    ax17.set_ylabel("Meas Yaw (deg), magenta")
+    ax16.set_ylabel("Sent YawR (deg/s), cyan")
+    ax16.set_ylim(-210, 210)
+    ax17.set_ylim(-250, 250)
     ax16.set_xlabel('Time (sec)')
 
     #plt.tight_layout(pad=0.00, w_pad=0.360, h_pad=0.220)
@@ -653,7 +678,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     loc=[0,0,0]
     state_vector = init_state(loc, 0)
 
-    mset = structure_gen.rect(1, 1)
+    mset = structure_gen.rect(2, 2)
     lin_assign(mset, start_id=start_mod_id, reverse=True) # 0-indexed
     #print(mset.pi)
     structure = convert_modset_to_struc(mset, start_mod_id)
@@ -687,39 +712,36 @@ if __name__ == '__main__':
     num_struc = 1
     results = test_shape_with_waypts(
                        num_struc, 
-                       #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
-                       waypt_gen.helix(radius=0.3, 
-                                       rise=0.3, 
-                                       num_circ=2, 
+                       #waypt_gen.zigzag_xy(2.0, 1.0, 6, start_pt=[x-1,y-0.5,0.5]),
+                       waypt_gen.helix(radius=0.4, 
+                                       rise=0.5, 
+                                       num_circ=4, 
                                        start_pt=[x, y, 0.0]),
                        #waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
                        #                     [x+0.0  , y+0.00  , 0.1],
                        #                     [x+0.0  , y+0.00  , 0.2],
-                       #                     [x+0.0  , y+0.00  , 0.3]
+                       #                     [x+0.0  , y+0.00  , 0.5]
                        #                     #[x+1  , y    , 0.5]
                        #                    ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
+                       #                     [x    , y    , 0.3],
+                       #                     [x-1.0, y-0.2, 0.5],
+                       #                     [x-1.0, y+0.2, 0.5],
+                       #                     [x+1.0, y+0.2, 0.5],
+                       #                     [x+1.0, y-0.2, 0.5],
+                       #                     [x-1.0, y-0.2, 0.5],
+                       #                     [x-1.0, y+0.2, 0.5],
+                       #                     [x+1.0, y+0.2, 0.5],
+                       #                     [x+1.0, y-0.2, 0.5],
+                       #                     [x-1.0, y-0.2, 0.5],
+                       #                     [x-1.0, y+0.2, 0.5],
+                       #                     [x+1.0, y+0.2, 0.5],
+                       #                     [x+1.0, y-0.2, 0.5],
                        #                     [x    , y    , 0.5],
-                       #                     [x    , y    , 0.7],
-                       #                     [x    , y+0.1, 0.7],
-                       #                     [x+0.5, y+0.1, 0.7],
-                       #                     [x+1.0, y+0.1, 0.7],
-                       #                     [x+0.5, y-0.1, 0.7],
-                       #                     [x    , y    , 0.7],
-                       #                     [x    , y+0.1, 0.7],
-                       #                     [x+0.5, y+0.1, 0.7],
-                       #                     [x+1.0, y+0.1, 0.7],
-                       #                     [x+0.5, y-0.1, 0.7],
-                       #                     [x    , y    , 0.7],
-                       #                     [x    , y+0.1, 0.7],
-                       #                     [x+0.5, y+0.1, 0.7],
-                       #                     [x+1.0, y+0.1, 0.7],
-                       #                     [x+0.5, y-0.1, 0.7],
-                       #                     [x    , y    , 0.7],
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=0.2, test_id="controls", 
+                       speed=0.25, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

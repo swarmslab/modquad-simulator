@@ -25,8 +25,9 @@ def convert_thrust_newtons_to_pwm(thrust_newtons):
 
     thrust = 60000 * (c2 * sqrt(F_g + c3) + c1)
 
-    if thrust < 10000:
-        thrust = 10000
+
+    if thrust < 0000:
+        thrust = 0000
     elif thrust > 60000:
         thrust = 60000
 
