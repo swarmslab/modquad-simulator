@@ -5,6 +5,7 @@ import numpy as np
 from math import sqrt
 import math
 from tf.transformations import euler_from_quaternion
+from modsim.util.thrust import convert_thrust_newtons_to_pwm
 
 def position_controller(structure, desired_state, dt):
     """
@@ -204,22 +205,22 @@ def position_controller(structure, desired_state, dt):
     #            #zi  =   0.05
 
     # normal rots
-    xyp = 40 #  20.0
-    xyd = 20 #  40.0
-    xyi =  2 #   0.0 
+    xyp = 30.0 # 40 #  20.0
+    xyd = 15.0 # 20 #  40.0
+    xyi =  0.5 #  2 #   0.0 
 
     # z gains multiplied by mass
-    zp  = 5000# 32 * 1.5
-    zd  = 6000# 32 * 4.0
-    zi  = 3500# 32 * 0
+    zp  =  7000 # 5000# 32 * 1.5
+    zd  =  7770 # 6000# 32 * 4.0
+    zi  =  3500 # 3500# 32 * 0
 
-    yaw_kp = -200 # 40
-    yaw_kd =  -20 # 40
-    yaw_ki =    0 # 40
+    yaw_kp =  -5 # -200 # -5 #-200
+    yaw_kd = -12 # -100 #-12 # -20
+    yaw_ki =   0 #    0 #  0 #   0
 
     # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
-    max_ang      =  10.0
-    max_yaw_rate = 200.0
+    max_ang      =  2.5 # 10.0
+    max_yaw_rate = 30.0 #200.0
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
@@ -228,6 +229,8 @@ def position_controller(structure, desired_state, dt):
     euler = euler_from_quaternion(state_vector[6:10])
     cur_yaw = euler[2]
 
+
+    #import pdb; pdb.set_trace()
     # Error
     #import pdb; pdb.set_trace()
     pos_error = (np.array(pos_des) - np.array(pos))
@@ -273,6 +276,8 @@ def position_controller(structure, desired_state, dt):
              ki3_u * structure.pos_accumulated_error[2]
                      #acc_des[2]   + \
 
+    #import pdb; pdb.set_trace()
+
     #print("----- R1 -----")
     #print("{} * {} + {} * {} + {} + {} * {} = {}".format(
     #    kp1_u, pos_error[0], kd1_u, vel_error[0], acc_des[0],
@@ -311,7 +316,7 @@ def position_controller(structure, desired_state, dt):
     # Thrust
     # FIXME Effect of gravity is negligible since thrust now in PWM instead of Newtons
     #thrust = m * g + r3_acc # Removed "m *" term from r3_acc, mass in gains
-    thrust = r3_acc
+    thrust = r3_acc #+ convert_thrust_newtons_to_pwm(params.m * params.g)
 
     #rospy.loginfo("thrust={}".format(thrust))
     thrust = min(max(thrust, 10000), 60000)

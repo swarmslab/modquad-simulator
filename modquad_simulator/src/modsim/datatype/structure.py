@@ -277,10 +277,10 @@ class Structure:
         # Send new parameter set to each robot
         for id_robot, xi, yi, rid in rot_list:
             # Send to dynamic attitude parameters
-            rospy.loginfo('Wait for service /{}/toggle_single_rotor'.format(id_robot))
+            #rospy.loginfo('Wait for service /{}/toggle_single_rotor'.format(id_robot))
             service_name = '/{}/toggle_single_rotor'.format(id_robot)
-            rospy.wait_for_service(service_name)
-            rospy.loginfo('Found service /{}/toggle_single_rotor'.format(id_robot))
+            #rospy.wait_for_service(service_name)
+            #rospy.loginfo('Found service /{}/toggle_single_rotor'.format(id_robot))
 
             try:
                 toggle_single_rotor = rospy.ServiceProxy(service_name, SingleRotorToggle)
