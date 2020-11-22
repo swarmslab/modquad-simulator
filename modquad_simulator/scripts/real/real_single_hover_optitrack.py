@@ -220,8 +220,8 @@ def check_to_inject_fault(t, fault_injected, structure):
         fault_injected = True
         rid = 0
         structure.single_rotor_toggle(
-            [(structure.ids[1], structure.xx[1], structure.yy[1], rid)],
-            rot_thrust_cap=0.0
+            [(structure.ids[0], structure.xx[0], structure.yy[0], rid)],
+            rot_thrust_cap=0.99
         )
         rospy.loginfo("INJECT FAULT")
     return fault_injected
@@ -289,11 +289,16 @@ def run(traj_vars, t_step=0.01, speed=1):
     #update_att_ki_gains(start_id, num_robot)
     #structure.update_firmware_params()
     #switch_estimator_to_kalman_filter(start_id, num_robot)
+    fault_injected = False
+    fault_detected = False
+    suspects_initd = False
 
     for mid in range(start_id, start_id + num_robot):
         rospy.loginfo(
             "setup complete for /modquad{:02d}".format(mid))
 
+    # inject fault prior to takeoff
+    #fault_injected = check_to_inject_fault(11, fault_injected, structure)
 
     # TAKEOFF
     taken_off = False
@@ -305,6 +310,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     msg.linear.z  = 0  # Thrust ranges 10000 - 60000
     msg.angular.z = 0  # yaw rate
     pidz_ki = 3500
+    rospy.loginfo("Start Control")
     while not taken_off:
         update_state(pose_mgr, structure, freq)
 
@@ -330,10 +336,6 @@ def run(traj_vars, t_step=0.01, speed=1):
     """
     tstart = rospy.get_time()
     t = 0
-    fault_injected = False
-    fault_detected = False
-    suspects_initd = False
-    rospy.loginfo("Start Control")
     while not rospy.is_shutdown() and t < 30.0:
         # Update time
         t = rospy.get_time() - tstart
@@ -388,7 +390,7 @@ def run(traj_vars, t_step=0.01, speed=1):
         # Send control message
         [ p.publish(msg) for p in publishers ]
 
-        #fault_injected = check_to_inject_fault(t, fault_injected, structure)
+        fault_injected = check_to_inject_fault(t, fault_injected, structure)
 
         # Based on residual, get a suspect list
         # if fault_injected and (not fault_detected) and (not suspects_initd):
@@ -688,16 +690,16 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
-                       waypt_gen.helix(radius=0.3, 
-                                       rise=0.3, 
-                                       num_circ=2, 
-                                       start_pt=[x, y, 0.0]),
-                       #waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
-                       #                     [x+0.0  , y+0.00  , 0.1],
-                       #                     [x+0.0  , y+0.00  , 0.2],
-                       #                     [x+0.0  , y+0.00  , 0.3]
-                       #                     #[x+1  , y    , 0.5]
-                       #                    ]),
+                       #waypt_gen.helix(radius=0.3, 
+                       #                rise=0.3, 
+                       #                num_circ=2, 
+                       #                start_pt=[x, y, 0.0]),
+                       waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
+                                            [x+0.0  , y+0.00  , 0.1],
+                                            [x+0.0  , y+0.00  , 0.15],
+                                            [x+0.0  , y+0.00  , 0.2]
+                                            #[x+1  , y    , 0.5]
+                                           ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
                        #                     [x    , y    , 0.5],

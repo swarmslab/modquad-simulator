@@ -237,12 +237,12 @@ def check_for_faults(fault_detected, structure):
 
 def check_to_inject_fault(t, fault_injected, structure):
     # Test fault injection
-    if t > 20.0 and not fault_injected:
+    if t > 10.0 and not fault_injected:
         fault_injected = True
         rid = 2
         structure.single_rotor_toggle(
             [(structure.ids[1], structure.xx[1], structure.yy[1], rid)],
-            rot_thrust_cap=1.0
+            rot_thrust_cap=0.50
         )
         rospy.loginfo("INJECT FAULT")
     return fault_injected
@@ -290,7 +290,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     msg.angular.z = 0 # yaw rate
 
     # shutdown
-    rospy.on_shutdown(landing)
+    rospy.on_shutdown(_simple_landing)
 
     # Update pose
     rospy.sleep(1)
@@ -311,38 +311,17 @@ def run(traj_vars, t_step=0.01, speed=1):
     structure.update_firmware_params()
     #switch_estimator_to_kalman_filter(start_id, num_robot)
 
+    fault_injected = False
+    fault_detected = False
+    suspects_initd = False
+
     for mid in range(start_id, start_id + num_robot):
         rospy.loginfo(
             "setup complete for /modquad{:02d}".format(mid))
 
+    #fault_injected = check_to_inject_fault(12, fault_injected, structure)
 
-    # TAKEOFF
-    taken_off = False
-    takeoff_thrust = 0
-
-    # Message init for takeoff
-    msg.linear.x  = 0  # pitch [-30, 30] deg
-    msg.linear.y  = 0  # roll [-30, 30] deg
-    msg.linear.z  = 0  # Thrust ranges 10000 - 60000
-    msg.angular.z = 0  # yaw rate
-    pidz_ki = 3500
-    rospy.loginfo("TAKEOFF")
-    while not taken_off:
-        update_state(pose_mgr, structure, freq)
-
-        if structure.state_vector[2] > 0.05 or msg.linear.z > 50000:
-            #msg.linear.z = 0
-            structure.pos_accumulated_error = msg.linear.z / pidz_ki
-            taken_off = True
-
-        # Convert thrust to PWM range
-        msg.linear.z += 10000 * (1.0/freq)
-
-        [ p.publish(msg) for p in publishers ]
-
-        # The sleep preserves sending rate
-        rate.sleep()
-    rospy.loginfo("COMPLETED TAKEOFF")
+    _takeoff(pose_mgr, structure, freq, publishers)
 
     """
     THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
@@ -352,11 +331,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     tstart = rospy.get_time()
     t = 0
     prev_t = t
-    fault_injected = False
-    fault_detected = False
-    suspects_initd = False
-    rospy.loginfo("Start Control")
-    while not rospy.is_shutdown() and t < 120.0:
+    while not rospy.is_shutdown() and t < 20.0:
         # Update time
         prev_t = t
         t = rospy.get_time() - tstart
@@ -405,15 +380,11 @@ def run(traj_vars, t_step=0.01, speed=1):
             #if (np.sum(np.array(np.abs(structure.state_vector[:3]))) < 0.5):
             #    print("Position is not valid, showing close to origin")
             #    break
-                
-
-        #if thrust == 0 and t > 1:
-        #    assert thrust > 0
 
         # Send control message
         [ p.publish(msg) for p in publishers ]
 
-        #fault_injected = check_to_inject_fault(t, fault_injected, structure)
+        fault_injected = check_to_inject_fault(t, fault_injected, structure)
 
         # Based on residual, get a suspect list
         # if fault_injected and (not fault_detected) and (not suspects_initd):
@@ -423,30 +394,7 @@ def run(traj_vars, t_step=0.01, speed=1):
         # The sleep preserves sending rate
         rate.sleep()
 
-    # LANDING
-    landed = False
-
-    # Message init for takeoff
-    msg.linear.x  = 0  # pitch [-30, 30] deg
-    msg.linear.y  = 0  # roll [-30, 30] deg
-    msg.angular.z = 0  # yaw rate
-    while not landed:
-        update_state(pose_mgr, structure, freq)
-
-        if structure.state_vector[2] <= 0.02 or msg.linear.z < 11000:
-            landed = True
-
-        msg.linear.z -= 10000 * (1.0/freq)
-
-        [ p.publish(msg) for p in publishers ]
-
-        # The sleep preserves sending rate
-        rate.sleep()
-
-    msg.linear.z = 0
-    [ p.publish(msg) for p in publishers ]
-
-    #landing()
+    _landing(pose_mgr, structure, freq, publishers, msg.linear.z)
 
     make_plots()
     print("DONE")
@@ -562,108 +510,112 @@ def make_plots():
     plt.show()
     plt.close()
 
-# def make_plots():
-#     global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
-#     global desx, desy, desz, desvx, desvy, desvz
-#     global s_thrustlog, s_rollog, s_pitchlog, s_yawlog
-#     global m_rollog, m_pitchlog, m_yawlog
-# 
-#     xlog = np.array(xlog)
-#     ylog = np.array(ylog)
-#     zlog = np.array(zlog)
-#     desx = np.array(desx)
-#     desy = np.array(desy)
-#     desz = np.array(desz)
-# 
-#     max_ang = 30
-# 
-#     plt.figure()
-#     ax0 = plt.subplot(3,3,1)
-#     ax1 = ax0.twinx()
-#     ax0.plot(tlog, s_pitchlog, 'c')
-#     ax0.set_ylabel("Sent Pitch (deg) cyan")
-#     ax1.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
-#     ax1.plot(tlog, xlog, 'b')
-#     ax1.plot(tlog, desx, 'k')
-#     ax1.plot(tlog, desx-xlog, 'r')
-#     ax1.set_ylabel("X (m), blue, black, red")
-# 
-#     ax4 = plt.subplot(3,3,3)
-#     ax5 = ax4.twinx()
-#     ax4.plot(tlog, s_pitchlog, 'c')
-#     ax4.set_ylim((-max_ang, max_ang))
-#     ax4.set_ylabel("Sent Pitch (deg), cyan")
-#     ax5.plot(tlog, m_pitchlog, 'm')
-#     ax5.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
-#     ax5.set_ylim((-max_ang, max_ang))
-#     ax5.set_ylabel("Meas Pitch (deg), magenta")
-# 
-#     ax6 = plt.subplot(3,3,4)
-#     ax7 = ax6.twinx()
-#     ax6.plot(tlog, s_rollog, 'c' )
-#     ax6.set_ylabel("Sent Roll (deg), cyan")
-#     ax7.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
-#     ax7.plot(tlog, ylog, 'b')
-#     ax7.plot(tlog, desy, 'k')
-#     ax7.plot(tlog, desy-ylog, 'r')
-#     ax7.set_ylabel("Y (m), blue, black, red")
-# 
-#     ax10 = plt.subplot(3,3,6)
-#     ax10.plot(tlog, s_rollog, 'c')
-#     ax10.set_ylabel("Sent Roll (deg), cyan")
-#     ax10.set_ylim((-max_ang, max_ang))
-#     ax11 = ax10.twinx()
-#     ax11.plot(tlog, m_rollog, 'm')
-#     ax11.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
-#     ax11.set_ylim((-max_ang, max_ang))
-#     ax11.set_ylabel("Meas Roll (deg), magenta")
-# 
-#     ax12 = plt.subplot(3,3,7)
-#     ax13 = ax12.twinx()
-#     ax12.plot(tlog, s_thrustlog, 'c' )
-#     ax12.set_ylabel("Sent Thrust (PWM), cyan")
-#     ax13.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
-#     ax13.plot(tlog, zlog, 'b')
-#     ax13.plot(tlog, desz, 'k')
-#     ax13.plot(tlog, desz-zlog, 'r')
-#     ax13.set_ylabel("Z (m), blue, black, red")
-# 
-#     ax14 = plt.subplot(3,3,9)
-#     ax14.set_ylabel("Sent Yaw Rate (deg/s) cyan")
-#     ax15 = ax14.twinx()
-#     ax14.plot(tlog, s_yawlog, 'c' )
-#     ax15.plot(tlog, m_yawlog, 'm' )
-#     ax15.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
-#     ax15.set_ylabel("Meas Yaw (deg) magenta")
-#     ax15.set_ylim((-30, 30))
-#     ax14.set_ylim((-205, 205))
-# 
-#     plt.show()
-#     plt.close()
-
-def landing():
+def _takeoff(pose_mgr, structure, freq, publishers):
     global start_id
 
+    rospy.loginfo("LANDING")
+    rate = rospy.Rate(freq)
+
+    # Publish to robot
+    msg = Twist()
+
+    # TAKEOFF
+    taken_off = False
+
+    # Message init for takeoff
+    msg.linear.x  = 0  # pitch [-30, 30] deg
+    msg.linear.y  = 0  # roll [-30, 30] deg
+    msg.linear.z  = 0  # Thrust ranges 10000 - 60000
+    msg.angular.z = 0  # yaw rate
+    pidz_ki = 3500
+    rospy.loginfo("Start Control")
+    rospy.loginfo("TAKEOFF")
+    while not taken_off:
+        update_state(pose_mgr, structure, freq)
+
+        if structure.state_vector[2] > 0.05 or msg.linear.z > 50000:
+            #msg.linear.z = 0
+            structure.pos_accumulated_error = msg.linear.z / pidz_ki
+            taken_off = True
+
+        # Convert thrust to PWM range
+        msg.linear.z += 10000 * (1.0/freq)
+
+        [ p.publish(msg) for p in publishers ]
+
+        # The sleep preserves sending rate
+        rate.sleep()
+    rospy.loginfo("COMPLETED TAKEOFF")
+
+def _landing(pose_mgr, structure, freq, publishers, cur_thrust):
+    global start_id
+
+    rospy.loginfo("LANDING")
+    rate = rospy.Rate(freq)
+
+    # Publish to robot
+    msg = Twist()
+
+    # LANDING
+    landed = False
+
+    # Message init for takeoff
+    msg.linear.x  = 0  # pitch [-30, 30] deg
+    msg.linear.y  = 0  # roll [-30, 30] deg
+    msg.angular.z = 0  # yaw rate
+    msg.linear.z  = cur_thrust
+    while not landed:
+        update_state(pose_mgr, structure, freq)
+
+        if structure.state_vector[2] <= 0.02 or msg.linear.z < 11000:
+            landed = True
+
+        msg.linear.z -= 10000 * (1.0/freq)
+
+        [ p.publish(msg) for p in publishers ]
+
+        # The sleep preserves sending rate
+        rate.sleep()
+
+    msg.linear.z = 0
+    [ p.publish(msg) for p in publishers ]
+
+def _simple_landing():
+    global start_id
+
+    rospy.loginfo("SIMPLE LANDING")
+    freq = 80.0 # Hz
+    rate = rospy.Rate(freq)
+
     prefix = 'modquad'
-    num_robot = rospy.get_param("num_robots", 1)
+    num_robot = rospy.get_param("num_robots", 4)
 
     publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
 
     # Publish to robot
     msg = Twist()
 
-    # First few msgs will be zeros
-    msg.linear.x = 0 # roll [-30, 30] deg
-    msg.linear.y = 0 # pitch [-30, 30] deg
-    msg.linear.z = 0 # Thrust ranges 10000 - 60000
-    msg.angular.z = 0 # yaw rate
+    # LANDING
+    landed = False
 
-    [p.publish(msg) for p in publishers]
+    # Message init for takeoff
+    msg.linear.x  = 0  # pitch [-30, 30] deg
+    msg.linear.y  = 0  # roll [-30, 30] deg
+    msg.angular.z = 0  # yaw rate
+    while not landed:
 
-    #land_services = [rospy.ServiceProxy('/modquad{:02d}/land'.format(mid), Empty) for mid in range(start_id, start_id + n)]
-    #for land in land_services:
-    #    land()
-    #rospy.sleep(5)
+        if msg.linear.z < 11000:
+            landed = True
+
+        msg.linear.z -= 10000 * (1.0/freq)
+
+        [ p.publish(msg) for p in publishers ]
+
+        # The sleep preserves sending rate
+        rate.sleep()
+
+    msg.linear.z = 0
+    [ p.publish(msg) for p in publishers ]
 
 def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="", 
         doreform=False, max_fault=1, rand_fault=False):
@@ -690,7 +642,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     print("Structure Used: ")
     print("{}".format(pi.astype(np.int64)))
 
-    rospy.on_shutdown(landing)
+    rospy.on_shutdown(_simple_landing)
 
     rospy.init_node('modrotor_simulator')
 
@@ -713,16 +665,16 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.0, 1.0, 6, start_pt=[x-1,y-0.5,0.5]),
-                       waypt_gen.helix(radius=0.4, 
-                                       rise=0.5, 
-                                       num_circ=4, 
-                                       start_pt=[x, y, 0.0]),
-                       #waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
-                       #                     [x+0.0  , y+0.00  , 0.1],
-                       #                     [x+0.0  , y+0.00  , 0.2],
-                       #                     [x+0.0  , y+0.00  , 0.5]
-                       #                     #[x+1  , y    , 0.5]
-                       #                    ]),
+                       #waypt_gen.helix(radius=0.4, 
+                       #                rise=0.5, 
+                       #                num_circ=4, 
+                       #                start_pt=[x, y, 0.0]),
+                       waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
+                                            [x+0.0  , y+0.00  , 0.1],
+                                            [x+0.0  , y+0.00  , 0.2],
+                                            [x+0.0  , y+0.00  , 0.3]
+                                            #[x+1  , y    , 0.5]
+                                           ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
                        #                     [x    , y    , 0.3],

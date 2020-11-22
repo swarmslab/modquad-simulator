@@ -80,9 +80,9 @@ def handle_change_single_rot_en(msg):
     #else:
     #    rospy.loginfo("Request disable R{}".format(rot_id))
 
-    rospy.loginfo("Wait for update_params service")
-    rospy.wait_for_service('update_params')
-    rospy.loginfo("Found update_params service")
+    #rospy.loginfo("Wait for update_params service")
+    #rospy.wait_for_service('update_params')
+    #rospy.loginfo("Found update_params service")
 
     try:
         update_params = rospy.ServiceProxy('update_params', UpdateParams)

@@ -81,6 +81,8 @@ def zigzag_xy(length, height, num_osc=2.0, start_pt=[0,0,0]):
                        ])
         waypts = np.vstack((waypts, a))
         start = [start[0] + 2*leninc, start[1], start[2]]
+    print(" WAYPOINTS ")
+    print(np.array(waypts))
     return waypts
 
 def zigzag_xz(length, height, num_osc=2.0, start_pt=[0,0,0]):
