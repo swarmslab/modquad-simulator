@@ -196,10 +196,11 @@ def check_to_inject_fault(t, fault_injected, structure):
     # Test fault injection
     if t > 10.0 and not fault_injected:
         fault_injected = True
-        rid = 2
+        rid = 1
+        mid = 3
         structure.single_rotor_toggle(
-            [(structure.ids[1], structure.xx[1], structure.yy[1], rid)],
-            rot_thrust_cap=0.50
+            [(structure.ids[mid], structure.xx[mid], structure.yy[mid], rid)],
+            rot_thrust_cap=0.00
         )
         rospy.loginfo("INJECT FAULT")
     return fault_injected
@@ -295,6 +296,7 @@ def run(traj_vars, t_step=0.01, speed=1):
             fault_detected = fault_exists_real(logs)
         if fault_detected:
             quadrant = get_faulty_quadrant_rotors_real(logs, structure)
+            print(quadrant)
             rotmat = rotpos_to_mat(structure, quadrant, start_id=start_id)
             rospy.loginfo("FAULT IS DETECTED, SUSPECTS BELOW")
             print(rotmat)
