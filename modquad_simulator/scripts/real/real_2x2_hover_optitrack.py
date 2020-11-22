@@ -48,42 +48,16 @@ t = 0.0
 traj_func = min_snap_trajectory
 start_id = 16 # 1 indexed
 
-tlog = []
-xlog = []
-ylog = []
-zlog = []
-
-vxlog = []
-vylog = []
-vzlog = []
-
-# circular buffer for velocities
-# MAX_VELBUF_IDX = 1
-# velbuf = np.zeros((MAX_VELBUF_IDX, 6))
-# velbuf_idx = 0
-
-
-desx = []
-desy = []
-desz = []
-
-desvx = []
-desvy = []
-desvz = []
-
-s_thrustlog = []
-s_rollog = []
-s_pitchlog = []
-s_yawlog = []
-
-m_thrustlog = []
-m_rollog = []
-m_pitchlog = []
-m_yawlog = []
-
-desroll  = []
-despitch = []
-desyaw   = []
+logs = {
+	't':     [], 'sthrust': [],                 # time, desired thrust
+	'x':     [], 'y':       [], 'z':        [], # measured position
+	'vx':    [], 'vy':      [], 'vz':       [], # measured linear velocity
+	'roll':  [], 'pitch':   [], 'yaw':      [], # measured attitude
+	'vroll': [], 'vpitch':  [], 'vyaw':     [], # measured angular velocity
+	'sroll': [], 'spitch':  [], 'syawrate': [], # desired roll, pitch, yaw rate
+	'desx':  [], 'desy':    [], 'desz':     [], # desired position
+	'desvx': [], 'desvy':   [], 'desvz':    []  # desired linear velocity
+}
 
 def switch_estimator_to_kalman_filter(start_id, num_robot):
     srv_name_set = ['/modquad{:02d}/switch_to_kalman_filter'.format(mid) for mid in range(start_id, start_id+num_robot)]
@@ -107,47 +81,45 @@ def update_att_ki_gains(start_id, num_robot):
     [zero_att_i_gains(msg) for zero_att_i_gains in zero_att_i_gains_set]
 
 def update_logs(t, state_vector, desired_state, thrust, roll, pitch, yawrate):
-    global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
-    global desx, desy, desz, desvx, desvy, desvz
-    global s_thrustlog, s_rollog, s_pitchlog, s_yawlog # sent
-    global m_thrustlog, m_rollog, m_pitchlog, m_yawlog # measured
-    global desroll, despitch, desyaw
+    global logs
 
     # Add to logs
-    tlog.append(t)
+    logs['t'].append(t)
 
-    xlog.append(state_vector[0])
-    ylog.append(state_vector[1])
-    zlog.append(state_vector[2])
+    logs['x'].append(state_vector[0])
+    logs['y'].append(state_vector[1])
+    logs['z'].append(state_vector[2])
 
     #vel = structure.state_vector[3:6]
-    vxlog.append(state_vector[3])
-    vylog.append(state_vector[4])
-    vzlog.append(state_vector[5])
+    logs['vx'].append(state_vector[3])
+    logs['vy'].append(state_vector[4])
+    logs['vz'].append(state_vector[5])
 
 
     # Orientation for a single rigid body is constant throughout the body
     euler = euler_from_quaternion(state_vector[6:10])
-    m_rollog.append(math.degrees(euler[0]))
-    m_pitchlog.append(math.degrees(euler[1]))
-    m_yawlog.append(math.degrees(euler[2]))
+    logs['roll'].append(math.degrees(euler[0]))
+    logs['pitch'].append(math.degrees(euler[1]))
+    logs['yaw'].append(math.degrees(euler[2]))
 
-    # Quaternion is computed using orientation, so that also doesn't need
-    # change
+    # Measured angular velocities 
+    logs['vroll'].append(state_vector[-3])
+    logs['vpitch'].append(state_vector[-2])
+    logs['vyaw'].append(state_vector[-1])
 
     # Add to logs
-    desx.append(desired_state[0][0])
-    desy.append(desired_state[0][1])
-    desz.append(desired_state[0][2])
+    logs['desx'].append(desired_state[0][0])
+    logs['desy'].append(desired_state[0][1])
+    logs['desz'].append(desired_state[0][2])
 
-    desvx.append(desired_state[1][0])
-    desvy.append(desired_state[1][1])
-    desvz.append(desired_state[1][2])
+    logs['desvx'].append(desired_state[1][0])
+    logs['desvy'].append(desired_state[1][1])
+    logs['desvz'].append(desired_state[1][2])
 
-    s_thrustlog.append(thrust)
-    s_rollog.append(roll)
-    s_pitchlog.append(pitch)
-    s_yawlog.append(yawrate)
+    logs['sthrust'].append(thrust)
+    logs['sroll'].append(roll)
+    logs['spitch'].append(pitch)
+    logs['syawrate'].append(yawrate)
 
 def init_params(speed):
     #rospy.set_param("kalman/resetEstimation", 1)
@@ -218,23 +190,6 @@ def update_state(pose_mgr, structure, freq): # freq computed as 1 / (t - prev_t)
     #if velbuf_idx >= MAX_VELBUF_IDX:
     #    velbuf_idx = 0
 
-def check_for_faults(fault_detected, structure):
-    global desx, desy, desz
-
-    if len(desx) > 0:
-        des_pos = np.array([desx[-1], desy[-1], desz[-1]])
-        cur_pos = np.array(structure.state_vector[:3])
-    
-        # Current pos is where we wanted next position to be
-        residual= cur_pos - des_pos
-    
-        if not fault_detected and fault_exists_real(residual):
-            print("FAULT DETECTED! COMMENCE SEARCH!")
-            return True
-        else:
-            return fault_detected
-    return False
-
 def check_to_inject_fault(t, fault_injected, structure):
     # Test fault injection
     if t > 10.0 and not fault_injected:
@@ -248,10 +203,11 @@ def check_to_inject_fault(t, fault_injected, structure):
     return fault_injected
 
 def run(traj_vars, t_step=0.01, speed=1):
-    global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
-    global desx, desy, desz, desvx, desvy, desvz
-    global s_thrustlog, s_rollog, s_pitchlog, s_yawlog # sent
-    global m_thrustlog, m_rollog, m_pitchlog, m_yawlog # measured
+    #global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
+    #global desx, desy, desz, desvx, desvy, desvz
+    #global s_thrustlog, s_rollog, s_pitchlog, s_yawlog # sent
+    #global m_thrustlog, m_rollog, m_pitchlog, m_yawlog # measured
+    global logs
 
     global t, traj_func, start_id, structure
 
@@ -267,10 +223,6 @@ def run(traj_vars, t_step=0.01, speed=1):
     pose_mgr = PoseManager(num_robot, '/vrpn_client_node/modquad', start_id=start_id-1) #0-indexed
     pose_mgr.subscribe()
  
-    # 0-indexed start val
-    # imu_mgr = ImuManager(3, '/modquad', start_id=start_id-1)
-    # imu_mgr.subscribe()
-
     # Publish here to control
     # crazyflie_controller/src/controller.cpp has been modified to subscribe to
     # this topic, and if we are in the ModQuad state, then the Twist message
@@ -319,8 +271,6 @@ def run(traj_vars, t_step=0.01, speed=1):
         rospy.loginfo(
             "setup complete for /modquad{:02d}".format(mid))
 
-    #fault_injected = check_to_inject_fault(12, fault_injected, structure)
-
     _takeoff(pose_mgr, structure, freq, publishers)
 
     """
@@ -339,14 +289,14 @@ def run(traj_vars, t_step=0.01, speed=1):
 
         update_state(pose_mgr, structure, 1.0/dt)
 
-        # fault_detected = check_for_faults(fault_detected, structure)
-        # if fault_detected:
-        #     break
-        #     #sys.exit(2)
+        if not fault_detected:
+            fault_detected = fault_exists_real(logs)
+        if fault_detected:
+            rospy.loginfo("FAULT IS DETECTED")
+            break
 
         # Get new desired state
         desired_state = traj_func(t, speed, traj_vars)
-        #desired_state = [[0,0,0.3], [0,0,0], [0,0,0], 0, 0]
 
         # Get new control inputs
         [thrust_newtons, roll, pitch, yaw] = \
@@ -400,17 +350,14 @@ def run(traj_vars, t_step=0.01, speed=1):
     print("DONE")
 
 def make_plots():
-    global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
-    global desx, desy, desz, desvx, desvy, desvz
-    global s_thrustlog, s_rollog, s_pitchlog
-    global m_rollog, m_pitchlog, m_yawlog
+    global logs
 
     plt.figure()
     ax0 = plt.subplot(3,3,1)
     ax1 = ax0.twinx()
-    ax0.plot(tlog, s_pitchlog, 'c')
-    ax1.plot(tlog, xlog, 'r', label='xpos')
-    ax1.plot(tlog, desx, 'k', label='desx')
+    ax0.plot(logs['t'], logs['spitch'], 'c')
+    ax1.plot(logs['t'], logs['x'], 'r', label='xpos')
+    ax1.plot(logs['t'], logs['desx'], 'k', label='desx')
     ax1.set_ylabel("X (m)")
     ax1.legend(loc='lower right')
     ax1.set_ylim(-2, 2)
@@ -419,9 +366,9 @@ def make_plots():
 
     ax2 = plt.subplot(3,3,2)
     ax3 = ax2.twinx()
-    ax2.plot(tlog, s_pitchlog, 'c')
-    ax3.plot(tlog, vxlog, 'r', label='xvel')
-    ax3.plot(tlog, desvx, 'k', label='desvx')
+    ax2.plot(logs['t'], logs['spitch'], 'c')
+    ax3.plot(logs['t'], logs['vx'], 'r', label='xvel')
+    ax3.plot(logs['t'], logs['desvx'], 'k', label='desvx')
     ax3.legend(loc='lower right')
     ax3.set_ylabel("X (m/s)")
     ax2.set_ylabel("Pitch (deg)")
@@ -430,19 +377,19 @@ def make_plots():
 
     ax4 = plt.subplot(3,3,3)
     ax5 = ax4.twinx()
-    ax4.plot(tlog, s_pitchlog, 'c', label='des pitch')
+    ax4.plot(logs['t'], logs['spitch'], 'c', label='des pitch')
     ax4.legend(loc='lower right')
     ax4.set_ylabel("Pitch (deg)")
-    ax5.plot(tlog, m_pitchlog, 'm')
+    ax5.plot(logs['t'], logs['pitch'], 'm')
     ax5.set_ylabel("Pitch (deg)")
     ax4.set_ylim(-20, 20)
     ax5.set_ylim(-20, 20)
 
     ax6 = plt.subplot(3,3,4)
     ax7 = ax6.twinx()
-    ax6.plot(tlog, s_rollog, 'c' )
-    ax7.plot(tlog, ylog, 'g', label='ypos')
-    ax7.plot(tlog, desy, 'k', label='desy')
+    ax6.plot(logs['t'], logs['sroll'], 'c' )
+    ax7.plot(logs['t'], logs['y'], 'g', label='ypos')
+    ax7.plot(logs['t'], logs['desy'], 'k', label='desy')
     ax7.legend(loc='lower right')
     ax7.set_ylabel("Y (m)")
     ax6.set_ylabel("Roll (deg)")
@@ -451,9 +398,9 @@ def make_plots():
 
     ax8 = plt.subplot(3,3,5)
     ax9 = ax8.twinx()
-    ax8.plot(tlog, s_rollog, 'c' )
-    ax9.plot(tlog, vylog, 'g', label='vy')
-    ax9.plot(tlog, desvy, 'k', label='des_vy')
+    ax8.plot(logs['t'], logs['sroll'], 'c' )
+    ax9.plot(logs['t'], logs['vy'], 'g', label='vy')
+    ax9.plot(logs['t'], logs['desvy'], 'k', label='des_vy')
     ax9.legend(loc='lower right')
     ax9.set_ylabel("Y (m/s)")
     ax8.set_ylabel("Roll (deg)")
@@ -461,19 +408,19 @@ def make_plots():
     #ax9.set_ylim(-200, 200)
 
     ax10 = plt.subplot(3,3,6)
-    ax10.plot(tlog, s_rollog, 'c', label='des_roll')
+    ax10.plot(logs['t'], logs['sroll'], 'c', label='des_roll')
     ax10.set_ylabel("Roll (deg), cyan")
     ax11 = ax10.twinx()
-    ax11.plot(tlog, m_rollog, 'm', label='meas_roll')
+    ax11.plot(logs['t'], logs['roll'], 'm', label='meas_roll')
     ax11.set_ylabel("Meas Roll (deg), magenta")
     ax10.set_ylim(-20, 20)
     ax11.set_ylim(-20, 20)
 
     ax12 = plt.subplot(3,3,7)
     ax13 = ax12.twinx()
-    ax12.plot(tlog, s_thrustlog, 'c' )
-    ax13.plot(tlog, zlog, 'b', label='zpos')
-    ax13.plot(tlog, desz, 'k', label='desz')
+    ax12.plot(logs['t'], logs['sthrust'], 'c' )
+    ax13.plot(logs['t'], logs['z'], 'b', label='zpos')
+    ax13.plot(logs['t'], logs['desz'], 'k', label='desz')
     ax13.legend(loc='lower right')
     ax13.set_ylabel("Z (m)")
     ax12.set_ylabel("Thrust (PWM)")
@@ -483,9 +430,9 @@ def make_plots():
 
     ax14 = plt.subplot(3,3,8)
     ax15 = ax14.twinx()
-    ax14.plot(tlog, s_thrustlog, 'c' )
-    ax15.plot(tlog, vzlog, 'b', label='vz')
-    ax15.plot(tlog, desvz, 'k', label='desvz')
+    ax14.plot(logs['t'], logs['sthrust'], 'c' )
+    ax15.plot(logs['t'], logs['vz'], 'b', label='vz')
+    ax15.plot(logs['t'], logs['desvz'], 'k', label='desvz')
     ax15.legend(loc='lower right')
     ax15.set_ylabel("Z (m/s)")
     ax14.set_ylabel("Thrust (PWM)")
@@ -495,16 +442,17 @@ def make_plots():
 
     ax16 = plt.subplot(3,3,9)
     ax17 = ax16.twinx()
-    ax16.plot(tlog, [0 for _ in range(len(tlog))], 'k' )
-    ax16.plot(tlog, s_yawlog, 'c')
-    ax17.plot(tlog, m_yawlog, 'b')
+    ax16.plot(logs['t'], [0 for _ in range(len(logs['t']))], 'k' )
+    ax16.plot(logs['t'], logs['syawrate'], 'c', label=r'Sent $\dot{\psi}$')
+    ax16.plot(logs['t'], logs['vyaw'], 'm', label=r'Meas $\dot{\psi}$')
+    ax17.plot(logs['t'], logs['yaw'], 'b')
+    ax16.set_ylabel("Yaw Rate (deg/s), cyan")
     ax17.set_ylabel("Meas Yaw (deg), magenta")
-    ax16.set_ylabel("Sent YawR (deg/s), cyan")
     ax16.set_ylim(-210, 210)
     ax17.set_ylim(-250, 250)
     ax16.set_xlabel('Time (sec)')
+    ax15.legend(loc='lower right')
 
-    #plt.tight_layout(pad=0.00, w_pad=0.360, h_pad=0.220)
     plt.subplots_adjust(left=0.11, bottom=0.09, right=0.9, top=0.99, wspace=0.36, hspace=0.26)
 
     plt.show()
