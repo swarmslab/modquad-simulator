@@ -30,7 +30,9 @@ from modsim.util.thrust import convert_thrust_newtons_to_pwm
 
 from modsim.util.fault_detection import fault_exists_real,      \
                                         real_find_suspects,     \
-                                        get_faulty_quadrant_rotors_real
+                                        get_faulty_quadrant_rotors_real,\
+                                        update_ramp_rotors, update_ramp_factors, \
+                                        form_groups, update_rotmat
 
 from dockmgr.datatype.PoseManager import PoseManager
 #from dockmgr.datatype.ImuManager import ImuManager
@@ -125,6 +127,8 @@ def update_logs(t, state_vector, desired_state, thrust, roll, pitch, yawrate):
 
 def init_params(speed):
     #rospy.set_param("kalman/resetEstimation", 1)
+    rospy.set_param("fault_det_time_interval", 15.0) # Time interval for fault detection groups
+    rospy.set_param("fdd_group_type", "indiv") # FDD Group Size = 1 Robot
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
     rospy.set_param('rotor_map', 1) # So that modquad_torque_control knows which mapping to use
@@ -200,10 +204,22 @@ def check_to_inject_fault(t, fault_injected, structure):
         mid = 3
         structure.single_rotor_toggle(
             [(structure.ids[mid], structure.xx[mid], structure.yy[mid], rid)],
-            rot_thrust_cap=0.00
+            rot_thrust_cap=0.4
         )
         rospy.loginfo("INJECT FAULT")
     return fault_injected
+
+def apply_ramp_factors(ramp_rotor_set, ramp_factors, structure):
+    # Test fault injection
+    for i, ramp_set in enumerate(ramp_rotor_set):
+        for rotor in ramp_set:
+            mid = rotor[0]
+            rid = rotor[1]
+            structure.single_rotor_toggle(
+                [(structure.ids[mid], structure.xx[mid], structure.yy[mid], rid)],
+                rot_thrust_cap=ramp_factors[i]
+            )
+    return
 
 def run(traj_vars, t_step=0.01, speed=1):
     #global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
@@ -226,14 +242,13 @@ def run(traj_vars, t_step=0.01, speed=1):
     pose_mgr = PoseManager(num_robot, '/vrpn_client_node/modquad', start_id=start_id-1) #0-indexed
     pose_mgr.subscribe()
  
-    # Publish here to control
-    # crazyflie_controller/src/controller.cpp has been modified to subscribe to
-    # this topic, and if we are in the ModQuad state, then the Twist message
-    # from mq_cmd_vel will be passed through to cmd_vel
-    # TODO: modify so that we publish to all modules in the struc instead of
-    # single hardcoded one
+    """ Publish here to control
+    crazyflie_controller/src/controller.cpp has been modified to subscribe to
+    this topic, and if we are in the ModQuad state, then the Twist message
+    from mq_cmd_vel will be passed through to cmd_vel
+    TODO: modify so that we publish to all modules in the struc instead of
+    single hardcoded one """
     publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
-
 
     # Publish to robot
     msg = Twist()
@@ -264,7 +279,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     # Update for the 2x2 structure
     update_att_ki_gains(start_id, num_robot)
     structure.update_firmware_params()
-    #switch_estimator_to_kalman_filter(start_id, num_robot)
+    switch_estimator_to_kalman_filter(start_id, num_robot)
 
     fault_injected = False
     fault_detected = False
@@ -284,7 +299,14 @@ def run(traj_vars, t_step=0.01, speed=1):
     tstart = rospy.get_time()
     t = 0
     prev_t = t
-    while not rospy.is_shutdown() and t < 20.0:
+    diagnose_mode = False
+    next_diag_t = 0
+    diag_time = 3 # sec
+    ramp_rotor_set = []
+    ramp_factors = [1.0, 0.0]
+    groups = []
+    ramp_rotor_set_idx = 0
+    while not rospy.is_shutdown() and t < 90.0:
         # Update time
         prev_t = t
         t = rospy.get_time() - tstart
@@ -294,13 +316,32 @@ def run(traj_vars, t_step=0.01, speed=1):
 
         if not fault_detected:
             fault_detected = fault_exists_real(logs)
-        if fault_detected:
+            fault_detected = True
+        elif not diagnose_mode:
+            next_diag_t = t + diag_time
+            diagnose_mode = True
             quadrant = get_faulty_quadrant_rotors_real(logs, structure)
             print(quadrant)
             rotmat = rotpos_to_mat(structure, quadrant, start_id=start_id)
             rospy.loginfo("FAULT IS DETECTED, SUSPECTS BELOW")
             print(rotmat)
-            break
+            groups = form_groups(quadrant, rotmat)
+            ramp_rotor_set = [[], groups[0]]
+        else: # Already detected fault presennce and quadrant
+            if t >= next_diag_t: # Update rotor set
+                next_diag_t += diag_time
+                if ramp_rotor_set_idx == len(groups) - 1:
+                    rospy.loginfo("Not implemented actual detection yet.")
+                    break
+
+                ramp_rotor_set, ramp_rotor_set_idx = \
+                    update_ramp_rotors(
+                        structure, t, next_diag_t, groups, 
+                        ramp_rotor_set_idx, rotmat, ramp_rotor_set
+                    )
+            else:
+                ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
+                apply_ramp_factors(ramp_rotor_set, ramp_factors, structure)
 
         # Get new desired state
         desired_state = traj_func(t, speed, traj_vars)
@@ -627,7 +668,7 @@ if __name__ == '__main__':
                        waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
                                             [x+0.0  , y+0.00  , 0.1],
                                             [x+0.0  , y+0.00  , 0.2],
-                                            [x+0.0  , y+0.00  , 0.3]
+                                            [x+0.0  , y+0.00  , 0.6]
                                             #[x+1  , y    , 0.5]
                                            ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
