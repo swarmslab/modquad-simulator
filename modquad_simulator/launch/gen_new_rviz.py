@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python2
 
 import sys
 import time
@@ -12,7 +12,7 @@ except:
 
 rospy.loginfo("VISUALIZING {} ROBOTS".format(nr))
 
-with open("/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/rviz/generated.rviz", "w+") as outfile:
+with open("/home/crazyflie/cf21_ws/src/modquad-simulator/modquad_simulator/rviz/generated.rviz", "w+") as outfile:
     outfile.write("Panels:\n")
     outfile.write("  - Class: rviz/Displays\n")
     outfile.write("    Help Height: 84\n")

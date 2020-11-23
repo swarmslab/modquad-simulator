@@ -3,7 +3,7 @@
 
     <arg name="launch_path" value="$(find modquad_simulator)/launch/aux/"/>
 
-	<node pkg="modquad_simulator" name="gen_new_rviz.py" type="gen_new_rviz.py" args="$(arg nr)"/>
+	<node pkg="modquad_simulator" name="gen_new_rviz" type="gen_new_rviz.py" args="$(arg nr)"/>
 
 	<!-- Launch visualization params that are independent of number of robots -->
 

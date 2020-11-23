@@ -46,6 +46,7 @@ from modsim.util.fault_detection import fault_exists,               \
                                         update_rotmat
 
 from modsim.util.fault_injection import inject_faults
+from modsim.util.thrust import convert_thrust_pwm_to_newtons
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
                                               convert_struc_to_mat   , \
@@ -175,10 +176,14 @@ def simulate(structure, trajectory_function, sched_mset,
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
-        if demo_trajectory:
-            # Overwrite the control input with the demo trajectory
-            [thrust_newtons, roll, pitch, yaw] = \
-                    position_controller(structure, desired_state)
+
+        #if demo_trajectory:
+        # Overwrite the control input with the demo trajectory
+        [thrust_pwm, roll, pitch, yaw] = \
+                position_controller(structure, desired_state, 1.0 / freq)
+
+        thrust_newtons = 6.0 * convert_thrust_pwm_to_newtons(thrust_pwm)
+        rospy.loginfo('thrust_newtons = {}'.format(thrust_newtons))
 
         # Control output based on crazyflie input
         F_single, M_single = \
@@ -197,7 +202,7 @@ def simulate(structure, trajectory_function, sched_mset,
                         ramp_rotor_set, ramp_factor)
 
         # Add noise to F_structure, M_structure
-        print(F_structure)
+        #print(F_structure)
         #F_structure += np.random.normal(loc=0, scale=0.025, size=F_structure.shape)
         #M_structure += np.random.normal(loc=0, scale=0.025, size=F_structure.shape)
 
@@ -249,6 +254,7 @@ def simulate(structure, trajectory_function, sched_mset,
                     # Recurse over set if not already single rotor
                     if (len(ramp_rotor_set[0]) == 1): # Single rotor
                         print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        break
                         sys.exit(0)
 
                     print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
@@ -291,6 +297,7 @@ def simulate(structure, trajectory_function, sched_mset,
         # Sleep so that we can maintain a 100 Hz update rate
         rate.sleep()
 
+    rospy.loginfo("PLOTTING")
 
     traj_vars = structure.traj_vars 
     pos_err_log /= ind
@@ -364,6 +371,9 @@ def simulate(structure, trajectory_function, sched_mset,
     #strftime("%Y-%m-%d_%H:%M:%S", localtime()), 
     plt.savefig("figs/2d_{}.pdf".format(filesuffix))
     #print("total integral={}".format(np.sum(np.array(forces_log) ** 2) * t_step))
+
+    plt.show()
+
     plt.clf() # Clear figures
     plt.sca(ax)
     plt.clf()
@@ -414,11 +424,11 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        #structure_gen.zero(4, 4), 
                        #structure_gen.plus(2, 1), 
-                       structure_gen.rect(1, 1), 
+                       structure_gen.rect(2, 2), 
                        #structure_gen.airplane(5,5,3),
                        waypt_gen.helix(radius=2.5, rise=1, num_circ=2),
                        #waypt_gen.line([0,0,0],[1,1,1]),
-                       speed=2.5, test_id="4x4rect_2.5x1x2helix", 
+                       speed=2.0, test_id="4x4rect_2.5x1x2helix", 
                        doreform=True, max_fault=1, rand_fault=False)
     #print("Force used: {}".format(results[0]))
     #print("RMSE Position Error: {}".format(np.mean(results[1])))

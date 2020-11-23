@@ -32,3 +32,13 @@ def convert_thrust_newtons_to_pwm(thrust_newtons):
         thrust = 60000
 
     return thrust
+
+def convert_thrust_pwm_to_newtons(thrust_pwm):
+    # For more info, check:
+    # https://github.com/whoenig/crazyflie_ros
+    c1, c2, c3 = -0.6709, 0.1932, 13.0652
+    F_g = ((thrust_pwm / 60000. - c1) / c2) ** 2 - c3  # Force in grams
+    if F_g < 0:
+        F_g = 0
+
+    return 9.81 * F_g / 1000.  # Force in Newtons
