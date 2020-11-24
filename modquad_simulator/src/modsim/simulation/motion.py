@@ -27,9 +27,9 @@ def state_derivative(state_vector, F, M, structure):
     K_quat = 2.  # this enforces the magnitude 1 constraint for the quaternion
     quat_error = 1 - (qW ** 2 + qX ** 2 + qY ** 2 + qZ ** 2)  # Quaternion error
     qdot = (-1. / 2) * np.dot(np.array([[0, -p, -q, -r],
-                                        [p, 0, -r, q],
-                                        [q, r, 0, -p],
-                                        [r, -q, p, 0]]), [qW, qX, qY, qZ])
+                                        [p,  0, -r,  q],
+                                        [q,  r,  0, -p],
+                                        [r, -q,  p,  0]]), [qW, qX, qY, qZ])
     qdot += K_quat * quat_error * np.array([qW, qX, qY, qZ])
     qdot = [qdot[1], qdot[2], qdot[3], qdot[0]]  # reorder the quaternion based on the ROS quaternion representation.
 
@@ -39,7 +39,10 @@ def state_derivative(state_vector, F, M, structure):
 
     # Acceleration
     gravity_vector = np.array([0, 0, structure.n * params.mass * params.grav])
-    linear_acceleration = (np.dot(wRb, [0, 0, F]) - gravity_vector) / params.mass
+
+    # Neeraj - modifying
+    #linear_acceleration = (np.dot(wRb, [0, 0, F]) - gravity_vector) / params.mass
+    linear_acceleration = (np.dot(wRb, [0, 0, F]) - gravity_vector) / (structure.n * params.mass)
 
     ## Assemble the derivative of the state
     sdot = np.zeros(13)

@@ -62,13 +62,17 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 
 fig = plt.figure()
 fig2 = plt.figure()
+fig.patch.set_facecolor('#E0E0E0')
+fig.patch.set_alpha(0.7)
+fig2.patch.set_facecolor('#E0E0E0')
+fig2.patch.set_alpha(0.7)
 
 def init_params(speed):
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
 
     # So that modquad_torque_control knows which mapping to use
-    rospy.set_param('rotor_map', 2) 
+    rospy.set_param('rotor_map', 1) 
 
     rospy.set_param('is_modquad_sim', True)
 
@@ -171,30 +175,27 @@ def simulate(structure, trajectory_function, sched_mset,
         # Compute control inputs
         [thrust_pwm, roll, pitch, yawrate] = \
                 position_controller(structure, desired_state, 1.0 / freq)
+        yaw_des = 0 # This is something currently unchangeable for trajectories we are running
 
         thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
 
-        #import pdb; pdb.set_trace()
-
         # Control output based on crazyflie input
         F_single, M_single = \
-                attitude_controller(structure, (thrust_newtons, roll, pitch, yawrate))
+                attitude_controller(structure, (thrust_newtons, roll, pitch, yawrate), yaw_des)
 
         en_motor_sat = True
-        en_fail_rotor_act = True
 
         # Control of Moments and thrust
         F_structure, M_structure, rotor_forces = \
-                modquad_torque_control(
-                        F_single, M_single, structure,
-                        en_motor_sat, en_fail_rotor_act)
+                modquad_torque_control( F_single, M_single, 
+					structure, en_motor_sat)
 
         # Simulate, obtain new state and state derivative
         new_state_vector = simulation_step( structure, 
-                                                  structure.state_vector, 
-		                                  F_structure, 
-                                                  M_structure, 
-                                                  1.0 / freq             )
+                                            structure.state_vector, 
+		                            F_structure, 
+                                            M_structure, 
+                                            1.0 / freq             )
 
         # Compute velocities manually
         structure.state_vector = new_state_vector #\
@@ -205,7 +206,7 @@ def simulate(structure, trajectory_function, sched_mset,
         tlog.append(t)
         state_log.append(np.copy(structure.state_vector))
         desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
-        M_log.append(M_single)
+        M_log.append(M_structure)
         forces_log.append(rotor_forces)
         ind += 1.0
 
@@ -295,38 +296,38 @@ def simulate(structure, trajectory_function, sched_mset,
     ax_t.plot(tlog, desired_cmd_log[:, 0], 'c')
     ax_t.set_ylabel(r"Thrust (N) cyan")
 
-    # pitch
-    ax0 = plt.subplot(4,2,figind+1)
-    ax0.set_ylabel(r"$\theta$ (deg)", size=ylabelsize)
-    ax0.plot(tlog, desired_cmd_log[:, 2], color='g', linewidth=lw)
-    ax0.plot(tlog, atts[:, 1], color='r', linewidth=lw)
-    ax0.set_ylim(-10, 10)
-    ax0.grid()
-
-    # Mx
-    ax1 = ax0.twinx()
-    ax1.plot(tlog, M_log[:, 0], 'c')
-    ax1.set_ylabel(r"$M_x$ (N.m) cyan")
-
     # roll
-    ax2 = plt.subplot(4,2,figind+3)
+    ax2 = plt.subplot(4,2,figind+1)
     ax2.set_ylabel(r"$\phi$ (deg)", size=ylabelsize)
-    ax2.plot(tlog, desired_cmd_log[:, 1], color='g', linewidth=lw)
     ax2.plot(tlog, atts[:, 0], color='r', linewidth=lw)
+    ax2.plot(tlog, desired_cmd_log[:, 1], color='g', linewidth=lw)
     ax2.set_ylim(-10, 10)
     ax2.grid()
 
-    # My
+    # Mx - moment about x axis, i.e., for pitch because of CF frame
     ax3 = ax2.twinx()
-    ax3.plot(tlog, M_log[:, 1], 'c')
-    ax3.set_ylabel(r"$M_y$ (N.m) cyan")
+    ax3.plot(tlog, M_log[:, 0], 'c')
+    ax3.set_ylabel(r"$M_x$ (N.m) cyan")
+
+    # pitch
+    ax0 = plt.subplot(4,2,figind+3)
+    ax0.set_ylabel(r"$\theta$ (deg)", size=ylabelsize)
+    ax0.plot(tlog, atts[:, 1], color='r', linewidth=lw)
+    ax0.plot(tlog, desired_cmd_log[:, 2], color='g', linewidth=lw)
+    ax0.set_ylim(-10, 10)
+    ax0.grid()
+
+    # My - moment about y axis, i.e., for pitch
+    ax1 = ax0.twinx()
+    ax1.plot(tlog, M_log[:, 1], 'c')
+    ax1.set_ylabel(r"$M_y$ (N.m) cyan")
 
     # Yaw Rate
     ax4 = plt.subplot(4,2,figind+5)
     ax4.set_xlabel("Time (sec)")
     ax4.set_ylabel(r"$\dot{\psi}$ (deg/s)", size=ylabelsize)
-    ax4.plot(tlog, desired_cmd_log[:, 3], color='g', linewidth=lw)
     ax4.plot(tlog, state_log[:, -1], color='r', linewidth=lw)
+    ax4.plot(tlog, desired_cmd_log[:, 3], color='g', linewidth=lw)
     ax4.grid()
 
     # Mz
@@ -348,7 +349,6 @@ def simulate(structure, trajectory_function, sched_mset,
 def _takeoff(structure, freq, odom_publishers, tf_broadcaster):
     global start_id
 
-    rospy.loginfo("LANDING")
     rate = rospy.Rate(freq)
 
     # Publish to robot
@@ -362,6 +362,7 @@ def _takeoff(structure, freq, odom_publishers, tf_broadcaster):
     msg.linear.y  = 0  # roll [-30, 30] deg
     msg.linear.z  = 0  # Thrust ranges 10000 - 60000
     msg.angular.z = 0  # yaw rate
+    yaw_des = 0
     pidz_ki = 3500
     rospy.loginfo("Start Control")
     rospy.loginfo("TAKEOFF")
@@ -380,7 +381,7 @@ def _takeoff(structure, freq, odom_publishers, tf_broadcaster):
 
         # Control output based on crazyflie input
         F_single, M_single = \
-                attitude_controller(structure, (thrust_newtons, roll, pitch, yawrate))
+                attitude_controller(structure, (thrust_newtons, roll, pitch, yawrate), yaw_des)
 
         en_motor_sat = True
         en_fail_rotor_act = True
@@ -431,8 +432,8 @@ if __name__ == '__main__':
     rospy.loginfo("starting simulation")
     random.seed(1)
     results = test_shape_with_waypts(
-                       structure_gen.rect(2, 2), 
-                       waypt_gen.helix(radius=2.5, rise=1, num_circ=2, start_pt=[0,0,0.05]),
-                       speed=0.75, test_id="4x4rect_2.5x1x2helix", 
+                       structure_gen.rect(4, 4), 
+                       waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5]),
+                       speed=0.15, test_id="4x4rect_2.5x1x2helix", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

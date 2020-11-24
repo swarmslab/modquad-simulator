@@ -204,23 +204,41 @@ def position_controller(structure, desired_state, dt):
     #            #zd  =   3.0
     #            #zi  =   0.05
 
-    # normal rots
-    xyp = 30.0 # 40 #  20.0
-    xyd = 15.0 # 20 #  40.0
-    xyi =  0.5 #  2 #   0.0 
+    if is_sim:
+        xyp = 30.0 # 40 #  20.0
+        xyd = 15.0 # 20 #  40.0
+        xyi =  0.5 #  2 #   0.0 
 
-    # z gains multiplied by mass
-    zp  =  7000 # 5000# 32 * 1.5
-    zd  =  7770 # 6000# 32 * 4.0
-    zi  =  3500 # 3500# 32 * 0
+        # z gains multiplied by mass
+        zp  = 7000 # 5000# 32 * 1.5
+        zd  = 7770 #27770 # 6000# 32 * 4.0
+        zi  = 3500 # 3500# 32 * 0
 
-    yaw_kp =  -5 # -200 # -5 #-200
-    yaw_kd = -12 # -100 #-12 # -20
-    yaw_ki =   0 #    0 #  0 #   0
+        yaw_kp =  -5 # -200 # -5 #-200
+        yaw_kd = -12 # -100 #-12 # -20
+        yaw_ki =   0 #    0 #  0 #   0
 
-    # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
-    max_ang      =  2.5 # 10.0
-    max_yaw_rate = 30.0 #200.0
+        # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
+        max_ang      =  2.5 # 10.0
+        max_yaw_rate = 30.0 #200.0
+
+    else: # real, standard-pwr rots
+        xyp = 30.0 # 40 #  20.0
+        xyd = 15.0 # 20 #  40.0
+        xyi =  0.5 #  2 #   0.0 
+
+        # z gains multiplied by mass
+        zp  =  7000 # 5000# 32 * 1.5
+        zd  =  7770 # 6000# 32 * 4.0
+        zi  =  3500 # 3500# 32 * 0
+
+        yaw_kp =  -5 # -200 # -5 #-200
+        yaw_kd = -12 # -100 #-12 # -20
+        yaw_ki =   0 #    0 #  0 #   0
+
+        # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
+        max_ang      =  2.5 # 10.0
+        max_yaw_rate = 30.0 #200.0
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
@@ -300,7 +318,10 @@ def position_controller(structure, desired_state, dt):
     # phi_des   = -r2_acc / g        #
     # theta_des =  r1_acc / g        #
     #rad_yaw_des = math.radians(yaw_des)
-    phi_des   =  -r2_acc # ((r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g)
+    if is_sim:
+    	phi_des   =  -r2_acc # ((r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g)
+    else:
+    	phi_des   =  -r2_acc # ((r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g)
     theta_des =   r1_acc # ((r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g)
 
     # Compute new output yaw rate
@@ -311,7 +332,7 @@ def position_controller(structure, desired_state, dt):
     theta_des = max(min(theta_des, max_ang), -max_ang)
 
     # Max yaw rate needs more limiting
-    psi_des   = max(min(psi_des, max_yaw_rate), -max_yaw_rate)
+    psi_dot_des   = max(min(psi_des, max_yaw_rate), -max_yaw_rate)
 
     # Thrust
     # FIXME Effect of gravity is negligible since thrust now in PWM instead of Newtons
@@ -319,12 +340,12 @@ def position_controller(structure, desired_state, dt):
     thrust = r3_acc #+ convert_thrust_newtons_to_pwm(params.m * params.g)
 
     #rospy.loginfo("thrust={}".format(thrust))
-    thrust = min(max(thrust, 10000), 60000)
+    thrust = min(max(thrust, 0000), 60000)
 
     #print([thrust, phi_des, theta_des, psi_des])
 
     # desired thrust and attitude
-    return [thrust, phi_des, theta_des, psi_des]
+    return [thrust, phi_des, theta_des, psi_dot_des]
 
 def modquad_torque_control(F, M, structure,
                             motor_sat=False, en_fail_rotor=False, 
@@ -460,8 +481,8 @@ def modquad_torque_control(F, M, structure,
 
 
     # From prop forces to total moments. Equation (1) of the modquad paper (ICRA 18)
-    F = np.sum(rotor_forces)
-    Mx = np.dot(ry, rotor_forces)
+    F  =  np.sum(rotor_forces)
+    Mx =  np.dot(ry, rotor_forces) # Neeraj: Added negative sign
     My = -np.dot(rx, rotor_forces)
     # TODO Mz
     Mz = M[2]
