@@ -7,11 +7,11 @@ import numpy as np
 #accumulated_error = np.array([0., 0., 0.])
 
 
-def attitude_controller(structure, control_in):
+def attitude_controller(structure, control_in, yaw_des):
     """
     Attitude controller for crazyflie, receiving pwm as input.
     the output are forces and moments. F_newtons in Newtons
-    :type control_in: tuple defined as (F_newtons, roll_des, pitch_des, yaw_des)
+    :type control_in: tuple defined as (F_newtons, roll_des, pitch_des, yawdot_des)
     :param x:
     :return:
     """
@@ -20,13 +20,15 @@ def attitude_controller(structure, control_in):
     F_newtons = control_in[0]
     roll_des = control_in[1]
     pitch_des = control_in[2]
-    yaw_des = control_in[3]
+    yawdot_des = control_in[3]
 
     ### Moments
     # Quaternion to angles
     quad_state = state_to_quadrotor(x)
 
-    kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .0002
+    # Where are these numbers from?
+    #kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .0002 # ORIGINAL
+    kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .000000 # ORIGINAL
 
     e = [math.radians(roll_des) - quad_state.euler[0],
          math.radians(pitch_des) - quad_state.euler[1],

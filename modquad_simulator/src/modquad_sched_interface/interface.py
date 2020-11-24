@@ -7,7 +7,7 @@ from compiled_scheduler.mqmod import mqmod
 from modsim.datatype.structure import Structure
 from modsim import params
 
-def convert_modset_to_struc(mset):
+def convert_modset_to_struc(mset, start_id=0):
     #ids = ['modquad{:02d}'.format(mq.mod_id + 1) for mq in mset.mods]
     #print(mset.pi + 1)
     #xpos = [params.cage_width * float(np.where(mset.pi == mq.mod_id)[1][0]) for mq in mset.mods]
@@ -21,7 +21,9 @@ def convert_modset_to_struc(mset):
     ypos = []
     fails = []
     i = 0
-    for mid in range(mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
+    for mid in range(start_id, start_id+mset.num_mod):#x,y in zip(*np.nonzero(mset.pi)):
+        #print(mset.pi)
+        #print(mid)
         loc = np.where(mset.pi == mid)
         x = loc[0][0]
         y = loc[1][0]
@@ -93,7 +95,7 @@ def convert_struc_to_mat(idset, xset, yset):
     #print('+++')
     return struc
 
-def rotpos_to_mat(structure, rot_list):
+def rotpos_to_mat(structure, rot_list, start_id=0):
     """
     rot_list and positions MUST have SAME indexing
     :param rot_list: list of tuples of elements (mod_id, rot_id)
@@ -111,7 +113,7 @@ def rotpos_to_mat(structure, rot_list):
     # Get minx, miny, maxx, maxy based on rot_list
     minx, miny, maxx, maxy = 99999, 99999, -99999, -99999
     for rot in rot_list:
-        mat_idx = np.where(struc_mat == rot[0])
+        mat_idx = np.where(struc_mat == rot[0]+start_id)
         assert (len(mat_idx[0]) == 1), "Mod ID has multiple mappings in X"
         assert (len(mat_idx[1]) == 1), "Mod ID has multiple mappings in Y"
 
@@ -120,12 +122,12 @@ def rotpos_to_mat(structure, rot_list):
 
         # Label each rotor position with its module ID
         if rot[1] == 0:
-            mat[2*x + 1, 2*y    ] = rot[0]
+            mat[2*x + 1, 2*y    ] = rot[0]+start_id
         elif rot[1] == 1:
-            mat[2*x + 1, 2*y + 1] = rot[0]
+            mat[2*x + 1, 2*y + 1] = rot[0]+start_id
         elif rot[1] == 2:
-            mat[2*x    , 2*y + 1] = rot[0]
+            mat[2*x    , 2*y + 1] = rot[0]+start_id
         else: # rot[1] == 3
-            mat[2*x    , 2*y    ] = rot[0]
+            mat[2*x    , 2*y    ] = rot[0]+start_id
 
     return mat

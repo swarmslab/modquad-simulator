@@ -1,8 +1,8 @@
 import rospy
 import tf
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Imu
 
-class OdometryManager(object):
+class ImuManager(object):
     def __init__(self, n, robot_sufij='/modquad', start_id=0):
         self.n = n
         self.robot_sufij = robot_sufij
@@ -23,10 +23,14 @@ class OdometryManager(object):
     def subscribe(self):
         for i in range(self.n):
             # subscriber
-            rospy.Subscriber(self.robot_sufij + '%02d/odom' % (i + self._start_id + 1), Odometry, self._callback_odom)
-            rospy.loginfo("Subscribe to {}{}/odom".format(self.robot_sufij, i + self._start_id + 1))
+            rospy.Subscriber(self.robot_sufij + '%02d/imu' % 
+                                (i + self._start_id + 1), 
+                                Imu, 
+                                self._callback_imu)
+            rospy.loginfo("Subscribe to {}{}/imu".format(
+                            self.robot_sufij, i + self._start_id + 1))
 
-    def _callback_odom(self, odom):
+    def _callback_imu(self, odom):
         # state vector
         x = odom.pose.pose.position.x
         y = odom.pose.pose.position.y

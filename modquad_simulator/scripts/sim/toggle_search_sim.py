@@ -1,5 +1,6 @@
 #!/usr/bin/env python 
 
+from __future__ import print_function
 import rospy
 import tf2_ros
 from geometry_msgs.msg import Twist
@@ -46,6 +47,7 @@ from modsim.util.fault_detection import fault_exists,               \
                                         update_rotmat
 
 from modsim.util.fault_injection import inject_faults
+from modsim.util.thrust import convert_thrust_pwm_to_newtons
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
                                               convert_struc_to_mat   , \
@@ -60,21 +62,19 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 fig = plt.figure()
 fig2 = plt.figure()
 
-faulty_rots = []
-
-fmod = sys.argv[1]
-frot = sys.argv[2]
-
 def simulate(structure, trajectory_function, sched_mset,
         t_step=0.01, speed=1, figind=1, 
         filesuffix="", max_faults=1):
 
-    global faulty_rots
+    global fmod, frot, faulty_rots, noise, rfname
 
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
-    #print("Speed = {}".format(speed))
-    rospy.set_param('rotor_map', 2) # So that modquad_torque_control knows which mapping to use
+    rospy.set_param('is_modquad_sim', True)
+
+    # So that modquad_torque_control knows which mapping to use
+    rospy.set_param('rotor_map', 2) 
+
     rospy.init_node('modrotor_simulator', anonymous=True)
     robot_id1 = rospy.get_param('~robot_id', 'modquad01')
     rids = [robot_id1]
@@ -123,7 +123,7 @@ def simulate(structure, trajectory_function, sched_mset,
 
     can_pub_imu = False
     faults_injected = False
-    freq = 100  # 100hz
+    freq = 300  # 100hz
     rate = rospy.Rate(freq)
     t = 0
     ind = 0.0
@@ -140,6 +140,7 @@ def simulate(structure, trajectory_function, sched_mset,
 
     # The time at which to perform next diagnostic check
     next_diag_t  = 0
+    inject_time  = 0
 
     # Which rotor we are testing currently
     quadrant_idx = 0
@@ -163,20 +164,22 @@ def simulate(structure, trajectory_function, sched_mset,
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
 
     #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
-    while t < overtime*tmax + 1.0 / freq:
+    while not rospy.is_shutdown(): #t < overtime*tmax + 1.0 / freq:
         t += 1. / freq
         if ( t % 10 < 0.01 ):
             print("{:.01f} / {:.01f} - Residual = {}".format(t, overtime*tmax, residual))
 
         # Publish odometry
-        #import pdb; pdb.set_trace()
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
-        if demo_trajectory:
-            # Overwrite the control input with the demo trajectory
-            [thrust_newtons, roll, pitch, yaw] = \
-                    position_controller(structure, desired_state)
+
+        #if demo_trajectory:
+        # Overwrite the control input with the demo trajectory
+        [thrust_pwm, roll, pitch, yaw] = \
+                position_controller(structure, desired_state, 1.0 / freq)
+
+        thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
 
         # Control output based on crazyflie input
         F_single, M_single = \
@@ -195,7 +198,7 @@ def simulate(structure, trajectory_function, sched_mset,
                         ramp_rotor_set, ramp_factor)
 
         # Add noise to F_structure, M_structure
-        print(F_structure)
+        #print(F_structure)
         #F_structure += np.random.normal(loc=0, scale=0.025, size=F_structure.shape)
         #M_structure += np.random.normal(loc=0, scale=0.025, size=F_structure.shape)
 
@@ -216,6 +219,8 @@ def simulate(structure, trajectory_function, sched_mset,
         rate.sleep()
 
         # Simulate, obtain new state and state derivative
+        F_structure  = np.array(F_structure)
+        F_structure += np.random.normal(loc=0, scale=noise, size=F_structure.shape)
         structure.state_vector = simulation_step( structure, 
                                                   structure.state_vector, 
 		                                          F_structure, 
@@ -224,10 +229,12 @@ def simulate(structure, trajectory_function, sched_mset,
 
         # Compute residuals for error detection
         residual = structure.state_vector - est
+        #print("Residual = {}".format(residual))
 
         # Process the residual - i.e. check for failed rotors via thresholding
         # of residuals
         if fault_exists(residual) and not diagnose_mode:
+            print("Enter Fault Diagnosis Mode")
             diagnose_mode = True
             quadrant = get_faulty_quadrant_rotors(residual, structure)
             rotmat = rotpos_to_mat(structure, quadrant)
@@ -240,16 +247,29 @@ def simulate(structure, trajectory_function, sched_mset,
         if diagnose_mode:
             if t >= next_diag_t: # Update rotor set
                 # We found the faulty rotor
-                if (abs(residual[-3] < 0.05) and abs(residual[-2]) < 0.05):
+                if (abs(residual[-3] < 0.03) and \
+                    abs(residual[-2]) < 0.03) and \
+                    len(ramp_rotor_set[0]) > 0:
+                #{
                     print("State Est = {}".format(est))
                     print("Residual = {}".format(residual[-3:-1]))
 
                     # Recurse over set if not already single rotor
                     if (len(ramp_rotor_set[0]) == 1): # Single rotor
+                        print("\t\t[\N{GREEK CAPITAL LETTER DELTA}t = {:.03f}] Injected ({}, {}), ID'd {}".format(
+                                t-inject_time, fmod, frot, ramp_rotor_set[0][0]),
+                                file=sys.stderr)
+                        with open(rfname, "a+") as f:
+                            f.write("{}-Mod: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
+                                    len(structure.xx), t - inject_time, fmod, frot,
+                                    ramp_rotor_set[0]) 
+                            )
                         print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        break
                         sys.exit(0)
 
                     print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
+                    assert len(ramp_rotor_set[0]) > 1
 
                     rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
 
@@ -258,6 +278,7 @@ def simulate(structure, trajectory_function, sched_mset,
                     quadrant_idx = 0 # Reset
                     print("New Groups: {}".format(groups))
                     ramp_rotor_set = [[], ramp_rotor_set[0]]
+                #}
                 else:
                     ramp_rotor_set, quadrant_idx = \
                                     update_ramp_rotors(
@@ -284,11 +305,14 @@ def simulate(structure, trajectory_function, sched_mset,
                                         sched_mset, faulty_rots,
                                         fmod, frot)
             faults_injected = True
+            inject_time = t
+            #import pdb; pdb.set_trace()
             print("Residual = {}".format(residual))
 
         # Sleep so that we can maintain a 100 Hz update rate
         rate.sleep()
 
+    rospy.loginfo("PLOTTING")
 
     traj_vars = structure.traj_vars 
     pos_err_log /= ind
@@ -362,6 +386,9 @@ def simulate(structure, trajectory_function, sched_mset,
     #strftime("%Y-%m-%d_%H:%M:%S", localtime()), 
     plt.savefig("figs/2d_{}.pdf".format(filesuffix))
     #print("total integral={}".format(np.sum(np.array(forces_log) ** 2) * t_step))
+
+    plt.show()
+
     plt.clf() # Clear figures
     plt.sca(ax)
     plt.clf()
@@ -376,49 +403,53 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     state_vector = init_state(loc, 0)
 
     # Generate the structure
-    #gsolve(mset, waypts=traj_vars.waypts)
     lin_assign(mset)
     struc1 = convert_modset_to_struc(mset)
     struc1.state_vector = state_vector
     struc1.traj_vars = traj_vars
 
-    #print("Starting fault inject exp with no faults.")
     pi = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
-    #print("Mset:\n{}".format(mset.pi))
 
-    if doreform:
-        forces, pos_err = simulate(struc1, trajectory_function, mset, 
-                figind=1, speed=speed, 
-                filesuffix="{}_f{}_reform".format(test_id, max_fault), 
-                max_faults=max_fault)
-    else:
-        forces, pos_err = simulate(struc1, trajectory_function, mset,
-                figind=1, speed=speed, 
-                filesuffix="{}_f{}_noreform".format(test_id, max_fault),
-                max_faults=max_fault)
-
-    #print(struc1.ids)
-    #print(struc1.xx)
-    #print(struc1.yy)
-    return [forces, pos_err, mset.pi]
+    simulate(struc1, trajectory_function, mset, 
+             figind=1, speed=speed, 
+             filesuffix="{}_f{}_reform".format(test_id, max_fault), 
+             max_faults=max_fault)
 
 if __name__ == '__main__':
-    print("starting simulation")
-    #print(structure_gen.airplane(5,5,3).struc)
-    #sys.exit(0)
+    global fmod, frot, faulty_rots, noise, rfname
+
+    faulty_rots = []
+    fmod = int(sys.argv[1])
+    frot = int(sys.argv[2])
+    n_idx= int(sys.argv[3])
+    ftype= int(sys.argv[4])
+    shape= int(sys.argv[5])
+
+    noise_arr = [ 0, 0.25, 0.5, 0.75, 1.0 ]
+    noise = noise_arr[n_idx]
+
+    structure = None
+    if shape == 1:
+        structure = structure_gen.plus(3, 3)
+    elif shape == 2:
+        structure = structure_gen.zero(3, 3)
+    elif shape == 3:
+        structure = structure_gen.rect(4, 3)
+    else:
+        raise Exception("Unknown shape num")
+
+    waypts = waypt_gen.helix(radius=2.5, rise=15, num_circ=15)
+
     rospy.set_param("fdd_group_type", "log4")
     random.seed(1)
-    results = test_shape_with_waypts(
-                       #structure_gen.zero(4, 4), 
-                       #structure_gen.plus(2, 1), 
-                       structure_gen.rect(1, 1), 
-                       #structure_gen.airplane(5,5,3),
-                       waypt_gen.helix(radius=2.5, rise=1, num_circ=2),
-                       #waypt_gen.line([0,0,0],[1,1,1]),
-                       speed=2.5, test_id="4x4rect_2.5x1x2helix", 
+
+    rfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
+             "modquad_simulator/fdd_toggle_results/"       + \
+             "n{:.01f}_fail{}.txt".format(noise, ftype)
+
+    print("starting simulation")
+    results = test_shape_with_waypts( structure, waypts,
+                       speed=3.5, test_id="3x3zero_2.5x1x2helix", 
                        doreform=True, max_fault=1, rand_fault=False)
-    #print("Force used: {}".format(results[0]))
-    #print("RMSE Position Error: {}".format(np.mean(results[1])))
-    #print("Faults: {}".format(faulty_rots))
     print("---------------------------------------------------------------")

@@ -11,6 +11,7 @@ from threading import Thread
 
 from modsim.controller import position_controller, modquad_torque_control
 from modsim.trajectory import min_snap_trajectory
+from modsim.datatype.structure_manager import StructureManager
 
 from modsim import params
 from modsim.params import RunType
@@ -37,7 +38,9 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
 
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
-    rospy.set_param('rotor_map', 2) # So that modquad_torque_control knows which mapping to use
+
+    # So that modquad_torque_control knows which mapping to use
+    rospy.set_param('rotor_map', 2) 
 
     robot_id1 = rospy.get_param('~robot_id', 'modquad')
     rids = [robot_id1]
@@ -46,9 +49,6 @@ def run(structure, trajectory_function, sched_mset, t_step=0.01, speed=1):
 
     # Plotting coeffs
     overtime = 1.0
-
-    # TF publisher - what is this for??
-    #tf_broadcaster = tf2_ros.TransformBroadcaster()
 
     freq = 80.0  # 100hz
     rate = rospy.Rate(freq)
