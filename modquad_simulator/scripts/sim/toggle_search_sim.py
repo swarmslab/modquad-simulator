@@ -47,6 +47,7 @@ from modsim.util.fault_detection import fault_exists,               \
                                         update_rotmat
 
 from modsim.util.fault_injection import inject_faults
+from modsim.util.thrust import convert_thrust_pwm_to_newtons
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
                                               convert_struc_to_mat   , \
@@ -173,9 +174,12 @@ def simulate(structure, trajectory_function, sched_mset,
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
 
+        #if demo_trajectory:
         # Overwrite the control input with the demo trajectory
-        [thrust_newtons, roll, pitch, yaw] = \
-                position_controller(structure, desired_state)
+        [thrust_pwm, roll, pitch, yaw] = \
+                position_controller(structure, desired_state, 1.0 / freq)
+
+        thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
 
         # Control output based on crazyflie input
         F_single, M_single = \
@@ -256,11 +260,12 @@ def simulate(structure, trajectory_function, sched_mset,
                                 t-inject_time, fmod, frot, ramp_rotor_set[0][0]),
                                 file=sys.stderr)
                         with open(rfname, "a+") as f:
-                            print("The faulty rotor is {}".format(ramp_rotor_set[0]))
                             f.write("{}-Mod: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
                                     len(structure.xx), t - inject_time, fmod, frot,
                                     ramp_rotor_set[0]) 
                             )
+                        print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        break
                         sys.exit(0)
 
                     print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
@@ -307,6 +312,7 @@ def simulate(structure, trajectory_function, sched_mset,
         # Sleep so that we can maintain a 100 Hz update rate
         rate.sleep()
 
+    rospy.loginfo("PLOTTING")
 
     traj_vars = structure.traj_vars 
     pos_err_log /= ind
@@ -380,6 +386,9 @@ def simulate(structure, trajectory_function, sched_mset,
     #strftime("%Y-%m-%d_%H:%M:%S", localtime()), 
     plt.savefig("figs/2d_{}.pdf".format(filesuffix))
     #print("total integral={}".format(np.sum(np.array(forces_log) ** 2) * t_step))
+
+    plt.show()
+
     plt.clf() # Clear figures
     plt.sca(ax)
     plt.clf()

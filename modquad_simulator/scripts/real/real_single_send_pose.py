@@ -3,12 +3,14 @@
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import math
 
 import rospy
 import tf2_ros
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Int8MultiArray
 from std_srvs.srv import Empty, EmptyRequest
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 from modsim.datatype.structure import Structure
 from modsim.datatype.structure_manager import StructureManager
@@ -29,7 +31,7 @@ from modsim.util.thrust import convert_thrust_newtons_to_pwm
 from modsim.util.fault_detection import fault_exists_real,      \
                                         real_find_suspects
 
-from dockmgr.datatype.OdometryManager import OdometryManager
+from dockmgr.datatype.PoseManager import PoseManager
 #from dockmgr.datatype.ImuManager import ImuManager
 
 from modquad_sched_interface.interface import convert_modset_to_struc, \
@@ -44,7 +46,7 @@ from modquad_sched_interface.simple_scheduler import lin_assign
 structure = None
 t = 0.0
 traj_func = min_snap_trajectory
-start_id = 16 # 1 indexed
+start_id = 15 # 1 indexed
 
 tlog = []
 xlog = []
@@ -66,14 +68,25 @@ desvz = []
 s_thrustlog = []
 s_rollog = []
 s_pitchlog = []
+s_yawlog = []
 
 m_thrustlog = []
 m_rollog = []
 m_pitchlog = []
+m_yawlog = []
 
 desroll  = []
 despitch = []
 desyaw   = []
+
+def switch_estimator_to_kalman_filter(start_id, num_robot):
+    srv_name_set = ['/modquad{:02d}/switch_to_kalman_filter'.format(mid) for mid in range(start_id, start_id+num_robot)]
+    switch_set = [ rospy.ServiceProxy(srv_name, Empty) for srv_name in srv_name_set ]
+    rospy.loginfo('Wait for all switch_to_kalman_filter services')
+    [rospy.wait_for_service(srv_name) for srv_name in srv_name_set]
+    rospy.loginfo('Found all switch_to_kalman_filter services')
+    msg = EmptyRequest()
+    [switch(msg) for switch in switch_set]
 
 def update_att_ki_gains(start_id, num_robot):
     # Zero the attitude I-Gains
@@ -87,7 +100,7 @@ def update_att_ki_gains(start_id, num_robot):
     msg = EmptyRequest()
     [zero_att_i_gains(msg) for zero_att_i_gains in zero_att_i_gains_set]
 
-def update_logs(t, state_vector, desired_state, thrust, roll, pitch):
+def update_logs(t, state_vector, desired_state, thrust, roll, pitch, yawrate):
     global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
     global desx, desy, desz, desvx, desvy, desvz
     global s_thrustlog, s_rollog, s_pitchlog, s_yawlog # sent
@@ -101,22 +114,14 @@ def update_logs(t, state_vector, desired_state, thrust, roll, pitch):
     ylog.append(state_vector[1])
     zlog.append(state_vector[2])
 
-    #vel = structure.state_vector[3:6]
-    vxlog.append(state_vector[3])
-    vylog.append(state_vector[4])
-    vzlog.append(state_vector[5])
-
     # Orientation for a single rigid body is constant throughout the body
-    m_pitchlog.append(state_vector[6])
-    m_rollog.append(state_vector[7])
+    euler = euler_from_quaternion(state_vector[3:7])
+    m_rollog.append(math.degrees(euler[0]))
+    m_pitchlog.append(math.degrees(euler[1]))
+    m_yawlog.append(math.degrees(euler[2]))
 
     # Quaternion is computed using orientation, so that also doesn't need
     # change
-
-    # Angular velocity also derived from orientation
-
-    # Linear velocity is the same across the rigid body treated as point
-    # mass
 
     # Add to logs
     desx.append(desired_state[0][0])
@@ -130,28 +135,29 @@ def update_logs(t, state_vector, desired_state, thrust, roll, pitch):
     s_thrustlog.append(thrust)
     s_rollog.append(roll)
     s_pitchlog.append(pitch)
+    s_yawlog.append(yawrate)
 
 def init_params(speed):
-    rospy.set_param("kalman/resetEstimation", 1)
+    #rospy.set_param("kalman/resetEstimation", 1)
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
-    rospy.set_param('rotor_map', 2) # So that modquad_torque_control knows which mapping to use
+    rospy.set_param('rotor_map', 1) # So that modquad_torque_control knows which mapping to use
     rospy.set_param('is_modquad_sim', False) # For controller.py
     rospy.set_param('is_modquad_bottom_framed', False)
-    rospy.set_param('is_modquad_unframed', False)
-    rospy.set_param('is_strong_rots', True) # For controller.py
+    rospy.set_param('is_modquad_unframed', True)
+    rospy.set_param('is_strong_rots', False) # For controller.py
     rospy.loginfo("!!READY!!")
     np.set_printoptions(precision=1)
 
-def update_state(odom_mgr, structure):
+def update_state(pose_mgr, structure):
     # Convert the individual new states into structure new state
     # As approximant, we let the first modules state be used
-    new_states = odom_mgr.get_new_states() # From VICON
+    new_states = pose_mgr.get_new_states() # From OPTITRACK
     new_pos = np.array([state[:3] for state in new_states])
     new_pos = np.mean(new_pos, axis=0).tolist()
-    
+
     # Update position to be centroid of structure
-    structure.state_vector = odom_mgr.get_new_state(0)
+    structure.state_vector = pose_mgr.get_new_state(0)
     structure.state_vector[0] = new_pos[0]
     structure.state_vector[1] = new_pos[1]
     structure.state_vector[2] = new_pos[2]
@@ -193,21 +199,17 @@ def run(traj_vars, t_step=0.01, speed=1):
 
     global t, traj_func, start_id, structure
 
-    freq = 200.0  # 100hz
+    freq = 150.0  # 100hz
     rate = rospy.Rate(freq)
     t = 0
     ind = 0
-    num_robot = 4
+    num_robot = 1
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
     init_params(speed) # Prints "!!READY!!" to log
 
-    # Set up topics
-    odom_topic = rospy.get_param('~odom_topic', '/odom')
-    pos_topic = rospy.get_param('world_pos_topic', '/odom')  
-
-    odom_mgr = OdometryManager(num_robot, '/modquad', start_id=start_id-1) #0-indexed
-    odom_mgr.subscribe()
+    pose_mgr = PoseManager(num_robot, '/vrpn_client_node/modquad', start_id=start_id-1) #0-indexed
+    pose_mgr.subscribe()
  
     # 0-indexed start val
     # imu_mgr = ImuManager(3, '/modquad', start_id=start_id-1)
@@ -221,37 +223,44 @@ def run(traj_vars, t_step=0.01, speed=1):
     # single hardcoded one
     publishers = [ rospy.Publisher('/modquad{:02d}/mq_cmd_vel'.format(mid), Twist, queue_size=100) for mid in range (start_id, start_id + num_robot) ]
 
+    pose_pub = rospy.Publisher("goal", PoseStamped, queue_size=1)
 
     # Publish to robot
-    msg = Twist()
+    msg = PoseStamped()
 
-    # First few msgs will be zeros
-    msg.linear.x = 0 # roll [-30, 30] deg
-    msg.linear.y = 0 # pitch [-30, 30] deg
-    msg.linear.z = 0 # Thrust ranges 10000 - 60000
-    msg.angular.z = 0 # yaw rate
+    msg.header.seq = 0
+    msg.header.stamp = rospy.Time.now()
+    msg.header.frame_id = worldFrame
+    msg.pose.position.x = 0
+    msg.pose.position.y = 0
+    msg.pose.position.z = 0
+    quat = quaternion_from_euler(0, 0, 0)
+    msg.pose.orientation.x = quat[0]
+    msg.pose.orientation.y = quat[1]
+    msg.pose.orientation.z = quat[2]
+    msg.pose.orientation.w = quat[3]
+
+    # shutdown
+    rospy.on_shutdown(landing)
+
+    # Update pose
+    rospy.sleep(1)
 
     # Start by sending NOPs so that we have known start state
     # Useful for debugging and safety
     t = 0
     while t < 3:
         t += 1.0 / freq
-        [ p.publish(msg) for p in publishers ]
+        pose_pub.publish(msg)
         if round(t, 2) % 1.0 == 0:
             rospy.loginfo("Sending zeros at t = {}".format(round(t,2)))
         rate.sleep()
+        update_state(pose_mgr, structure)
 
-    # shutdown
-    rospy.on_shutdown(landing)
-
-    # Update odom
-    rospy.sleep(1)
-
-    update_state(odom_mgr, structure)
-
-    # Update for the 4x1 structure
+    # Update for the 2x2 structure
     update_att_ki_gains(start_id, num_robot)
-    structure.update_firmware_params()
+    #structure.update_firmware_params()
+    #switch_estimator_to_kalman_filter(start_id, num_robot)
 
     for mid in range(start_id, start_id + num_robot):
         rospy.loginfo(
@@ -268,58 +277,50 @@ def run(traj_vars, t_step=0.01, speed=1):
     fault_detected = False
     suspects_initd = False
     rospy.loginfo("Start Control")
-    while not rospy.is_shutdown() and t < 70.0:
+    while not rospy.is_shutdown() and t < 20.0:
         # Update time
         t = rospy.get_time() - tstart
-        update_state(odom_mgr, structure)
+        #update_state(pose_mgr, structure)
 
-        # fault_detected = check_for_faults(fault_detected, structure)
-        # if fault_detected:
-        #     break
-        #     #sys.exit(2)
-
-        # Get new desired state
+        ## Get new desired state
         desired_state = traj_func(t, speed, traj_vars)
 
-        # Get new control inputs
-        [thrust_newtons, roll, pitch, yaw] = \
-                position_controller(structure, desired_state)
 
-        des_pos  = desired_state[0]
-        is_pos   = structure.state_vector[:3]
-        residual = des_pos - is_pos
+        #des_pos  = desired_state[0]
+        #is_pos   = structure.state_vector[:3]
+        #residual = des_pos - is_pos
 
         #suspects = find_suspects(residual)
 
         # Convert thrust to PWM range
-        thrust = convert_thrust_newtons_to_pwm(thrust_newtons)
-        #thrust = min(thrust, 45000) # temporary safety measure
+        #thrust = convert_thrust_newtons_to_pwm(thrust_newtons)
 
-        update_logs(t, structure.state_vector, desired_state, thrust, roll, pitch)
- 
-        # Update message content
-        msg.linear.x  = pitch  # pitch [-30, 30] deg
-        msg.linear.y  = roll   # roll [-30, 30] deg
-        msg.linear.z  = thrust # Thrust ranges 10000 - 60000
-        msg.angular.z = yaw    # yaw rate
+        #update_logs(t, structure.state_vector, desired_state, thrust, roll, pitch, yaw)
 
-        if round(t, 2) % 0.5 == 0:
-            rospy.loginfo("[{}] {}".format(round(t, 1), 
-                                        np.array([thrust, roll, pitch, yaw])))
-            rospy.loginfo("     Des={}, Is={}".format(
-                                            np.array(desired_state[0]), 
-                                            np.array(structure.state_vector[:3])))
-            if (np.sum(np.array(structure.state_vector[:3])) < 0.5):
-                print("Position is not valid, showing close to origin")
-                break
+        #if round(t, 2) % 0.5 == 0:
+        #    rospy.loginfo("[{}] {}".format(round(t, 1), 
+        #                                np.array([thrust, roll, pitch, yaw])))
+        #    rospy.loginfo("     Des={}, Is={}".format(
+        #                                    np.array(desired_state[0]), 
+        #                                    np.array(structure.state_vector[:3])))
+        #    rospy.loginfo("     Fn={}, Fp={}".format( thrust_newtons, thrust ))
+        #    rospy.loginfo("")
+        #    #if (np.sum(np.array(np.abs(structure.state_vector[:3]))) < 0.5):
+        #    #    print("Position is not valid, showing close to origin")
+        #    #    break
                 
-
-        if thrust == 0 and t > 1:
-            assert thrust > 0
-            import pdb; pdb.set_trace()
-
-        # Send control message
-        [ p.publish(msg) for p in publishers ]
+        pose_pub.publish(msg)
+        msg.header.seq += 1
+        msg.header.stamp = rospy.Time.now()
+        msg.header.frame_id = worldFrame
+        msg.pose.position.x = 0
+        msg.pose.position.y = 0
+        msg.pose.position.z = 0.5
+        quat = quaternion_from_euler(0, 0, 0)
+        msg.pose.orientation.x = quat[0]
+        msg.pose.orientation.y = quat[1]
+        msg.pose.orientation.z = quat[2]
+        msg.pose.orientation.w = quat[3]
 
         #fault_injected = check_to_inject_fault(t, fault_injected, structure)
 
@@ -333,81 +334,105 @@ def run(traj_vars, t_step=0.01, speed=1):
 
     landing()
 
-    make_plots()
+    #make_plots()
 
 def make_plots():
     global tlog, xlog, ylog, zlog, vxlog, vylog, vzlog
     global desx, desy, desz, desvx, desvy, desvz
-    global s_thrustlog, s_rollog, s_pitchlog
-    global m_rollog, m_pitchlog
+    global s_thrustlog, s_rollog, s_pitchlog, s_yawlog
+    global m_rollog, m_pitchlog, m_yawlog
+
+    xlog = np.array(xlog)
+    ylog = np.array(ylog)
+    zlog = np.array(zlog)
+    desx = np.array(desx)
+    desy = np.array(desy)
+    desz = np.array(desz)
+
+    max_ang = 30
 
     plt.figure()
     ax0 = plt.subplot(3,3,1)
     ax1 = ax0.twinx()
     ax0.plot(tlog, s_pitchlog, 'c')
-    ax1.plot(tlog, xlog, 'r')
+    ax0.set_ylabel("Sent Pitch (deg) cyan")
+    ax1.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
+    ax1.plot(tlog, xlog, 'b')
     ax1.plot(tlog, desx, 'k')
-    ax1.set_ylabel("X (m)")
-
-    ax2 = plt.subplot(3,3,2)
-    ax3 = ax2.twinx()
-    ax2.plot(tlog, s_pitchlog, 'c')
-    ax3.plot(tlog, vxlog, 'r')
-    ax3.plot(tlog, desvx, 'k')
-    ax3.set_ylabel("X (m/s)")
+    ax1.plot(tlog, desx-xlog, 'r')
+    ax1.set_ylabel("X (m), blue, black, red")
 
     ax4 = plt.subplot(3,3,3)
     ax5 = ax4.twinx()
     ax4.plot(tlog, s_pitchlog, 'c')
-    ax4.set_ylabel("Pitch (deg)")
+    ax4.set_ylim((-max_ang, max_ang))
+    ax4.set_ylabel("Sent Pitch (deg), cyan")
     ax5.plot(tlog, m_pitchlog, 'm')
-    ax5.set_ylabel("Pitch (?)")
+    ax5.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
+    ax5.set_ylim((-max_ang, max_ang))
+    ax5.set_ylabel("Meas Pitch (deg), magenta")
 
     ax6 = plt.subplot(3,3,4)
     ax7 = ax6.twinx()
     ax6.plot(tlog, s_rollog, 'c' )
-    ax7.plot(tlog, ylog, 'g')
+    ax6.set_ylabel("Sent Roll (deg), cyan")
+    ax7.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
+    ax7.plot(tlog, ylog, 'b')
     ax7.plot(tlog, desy, 'k')
-    ax7.set_ylabel("Y (m)")
-
-    ax8 = plt.subplot(3,3,5)
-    ax9 = ax8.twinx()
-    ax8.plot(tlog, s_rollog, 'c' )
-    ax9.plot(tlog, vylog, 'g')
-    ax9.plot(tlog, desvy, 'k')
-    ax9.set_ylabel("Y (m/s)")
+    ax7.plot(tlog, desy-ylog, 'r')
+    ax7.set_ylabel("Y (m), blue, black, red")
 
     ax10 = plt.subplot(3,3,6)
     ax10.plot(tlog, s_rollog, 'c')
-    ax10.set_ylabel("Roll (deg)")
+    ax10.set_ylabel("Sent Roll (deg), cyan")
+    ax10.set_ylim((-max_ang, max_ang))
     ax11 = ax10.twinx()
     ax11.plot(tlog, m_rollog, 'm')
-    #ax10.set_ylabel("Roll (?)")
+    ax11.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
+    ax11.set_ylim((-max_ang, max_ang))
+    ax11.set_ylabel("Meas Roll (deg), magenta")
 
     ax12 = plt.subplot(3,3,7)
     ax13 = ax12.twinx()
     ax12.plot(tlog, s_thrustlog, 'c' )
+    ax12.set_ylabel("Sent Thrust (PWM), cyan")
+    ax13.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
     ax13.plot(tlog, zlog, 'b')
     ax13.plot(tlog, desz, 'k')
-    ax13.set_ylabel("Z (m)")
+    ax13.plot(tlog, desz-zlog, 'r')
+    ax13.set_ylabel("Z (m), blue, black, red")
 
-    ax14 = plt.subplot(3,3,8)
+    ax14 = plt.subplot(3,3,9)
+    ax14.set_ylabel("Sent Yaw Rate (deg/s) cyan")
     ax15 = ax14.twinx()
-    ax14.plot(tlog, s_thrustlog, 'c' )
-    ax15.plot(tlog, vzlog, 'b')
-    ax15.plot(tlog, desvz, 'k')
-    ax15.set_ylabel("Z (m/s)")
+    ax14.plot(tlog, s_yawlog, 'c' )
+    ax15.plot(tlog, m_yawlog, 'm' )
+    ax15.plot(tlog, np.zeros((len(tlog), 1)), 'gray', linestyle='--')
+    ax15.set_ylabel("Meas Yaw (deg) magenta")
+    ax15.set_ylim((-30, 30))
+    ax14.set_ylim((-205, 205))
 
     plt.show()
     plt.close()
 
 def landing():
-    prefix = 'modquad'
-    n = rospy.get_param("num_robots", 4)
-    land_services = [rospy.ServiceProxy('/modquad{:02d}/land'.format(mid), Empty) for mid in range(start_id, start_id + n)]
-    for land in land_services:
-        land()
-    rospy.sleep(5)
+    worldFrame = rospy.get_param("~worldFrame", "/world")
+    msg = PoseStamped()
+
+    msg.header.seq = 0
+    msg.header.stamp = rospy.Time.now()
+    msg.header.frame_id = worldFrame
+    msg.pose.position.x = 0
+    msg.pose.position.y = 0
+    msg.pose.position.z = 0
+    quat = quaternion_from_euler(0, 0, 0)
+    msg.pose.orientation.x = quat[0]
+    msg.pose.orientation.y = quat[1]
+    msg.pose.orientation.z = quat[2]
+    msg.pose.orientation.w = quat[3]
+
+    pose_pub = rospy.Publisher("goal", PoseStamped, queue_size=1)
+    pose_pub.publish(msg)
 
 def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="", 
         doreform=False, max_fault=1, rand_fault=False):
@@ -422,7 +447,7 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     loc=[0,0,0]
     state_vector = init_state(loc, 0)
 
-    mset = structure_gen.rect(2, 2)
+    mset = structure_gen.rect(1, 1)
     lin_assign(mset, start_id=start_mod_id, reverse=True) # 0-indexed
     #print(mset.pi)
     structure = convert_modset_to_struc(mset, start_mod_id)
@@ -436,7 +461,6 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
 
     rospy.on_shutdown(landing)
 
-    rospy.init_node('modrotor_simulator')
 
     # So that modquad_torque_control knows which mapping to use
     rospy.set_param('rotor_map', 2) 
@@ -446,14 +470,15 @@ def test_shape_with_waypts(num_struc, wayptset, speed=1, test_id="",
     run(speed=speed, traj_vars=traj_vars)
 
 if __name__ == '__main__':
+    rospy.init_node('real_single_send', anonymous=True)
     print("starting simulation")
 
     # The place, according to mocap, where robot will start
-    x =  -1#6.68 # 4.9#  6.3
-    y =  0#0.64 #-0.9# -1.0
-    z =  0.00 # 0.0#  0.5
+    x =   0.0 # 6.68 # 4.9#  6.3
+    y =   0.0 # 0.64 #-0.9# -1.0
+    z =   0.0 # 0.0  # 0.5
 
-    num_struc = 4
+    num_struc = 1
     results = test_shape_with_waypts(
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.5, 1.0, 4, start_pt=[x,y,0.2]),
@@ -463,8 +488,8 @@ if __name__ == '__main__':
                        #                start_pt=[x, y, 0.0]),
                        waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
                                             [x+0.0  , y+0.00  , 0.1],
-                                            [x+0.0  , y+0.00  , 0.5],
-                                            [x+0.0  , y+0.00  , 0.7]
+                                            [x+0.0  , y+0.00  , 0.3],
+                                            [x+0.0  , y+0.00  , 0.75]
                                             #[x+1  , y    , 0.5]
                                            ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
@@ -489,6 +514,6 @@ if __name__ == '__main__':
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=0.03, test_id="controls", 
+                       speed=1.0, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

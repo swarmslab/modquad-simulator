@@ -4,4 +4,5 @@ mqscheduler/
 log*md
 *profiles*/
 *results/
-fault_detection.py
+src/modsim/util/code
+src/modsim/util/fault_detection.py

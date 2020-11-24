@@ -69,17 +69,6 @@ fig.patch.set_alpha(0.7)
 fig2.patch.set_facecolor('#E0E0E0')
 fig2.patch.set_alpha(0.7)
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-def simulate(structure, trajectory_function, sched_mset,
-        t_step=0.01, speed=1, figind=1, 
-        filesuffix="", max_faults=1):
-
-    global fmod, frot, faulty_rots, noise, rfname
-
-    rospy.set_param('opmode', 'normal')
-    rospy.set_param('structure_speed', speed)
-    rospy.set_param('is_modquad_sim', True)
-=======
 def init_params(speed):
     rospy.set_param('opmode', 'normal')
     rospy.set_param('structure_speed', speed)
@@ -97,7 +86,6 @@ def recompute_velocities(new_state, old_state, dt):
     state_vec[3] = vels[0]
     state_vec[4] = vels[1]
     state_vec[5] = vels[2]
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
 
     # Instantaneous angular velocities
     prev_angs = euler_from_quaternion(old_state[6:10])
@@ -151,9 +139,9 @@ def simulate(structure, trajectory_function, sched_mset,
     # 3D plot setup
     ax = fig2.add_subplot(1,1,1, projection='3d')
     ax.plot(structure.traj_vars.waypts[:,0], 
-	    structure.traj_vars.waypts[:,1], 
-	    structure.traj_vars.waypts[:,2], 
-	    zdir='z', color='b', linewidth=lw, dashes=[3, 3])
+            structure.traj_vars.waypts[:,1], 
+            structure.traj_vars.waypts[:,2], 
+            zdir='z', color='b', linewidth=lw, dashes=[3, 3])
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
     ax.set_zlim(zmin, zmax)
@@ -166,68 +154,32 @@ def simulate(structure, trajectory_function, sched_mset,
     # TF publisher
     tf_broadcaster = tf2_ros.TransformBroadcaster()
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-    can_pub_imu = False
-    faults_injected = False
-    freq = 300  # 100hz
-=======
     freq = 100  # 100hz
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
     rate = rospy.Rate(freq)
     t = 0
     ind = 0.0
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-    est = []
-    isForStateEst = True
-
-    # Whether we are diagnosing a fault
-    diagnose_mode = False
-
-    # ramp_mode ranges [-1, 1] - sign indicates ramp down (-) or up (+)
-    # Used to compute ramp_factor
-    ramp_mode = -1 # Init to ramping down, will grow to 0
-
-    # The time at which to perform next diagnostic check
-    next_diag_t  = 0
-    inject_time  = 0
-=======
     tlog = []
     desired_cmd_log = []
     M_log = []
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
 
     _takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-    #while not rospy.is_shutdown() or t < overtime*tmax + 1.0 / freq:
-    while not rospy.is_shutdown(): #t < overtime*tmax + 1.0 / freq:
-        t += 1. / freq
-        if ( t % 10 < 0.01 ):
-            print("{:.01f} / {:.01f} - Residual = {}".format(t, overtime*tmax, residual))
-=======
     while not rospy.is_shutdown() and t < overtime*tmax + 1.0 / freq:
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-        # Overwrite the control input with the demo trajectory
-        [thrust_newtons, roll, pitch, yaw] = \
-                position_controller(structure, desired_state)
-=======
         # Compute control inputs
         [thrust_pwm, roll, pitch, yawrate] = \
                 position_controller(structure, desired_state, 1.0 / freq)
         yaw_des = 0 # This is something currently unchangeable for trajectories we are running
 
         thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
 
         # Control output based on crazyflie input
         F_single, M_single = \
@@ -237,106 +189,22 @@ def simulate(structure, trajectory_function, sched_mset,
 
         # Control of Moments and thrust
         F_structure, M_structure, rotor_forces = \
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-                modquad_torque_control(
-                        F_single, M_single, structure,
-                        en_motor_sat, en_fail_rotor_act, 
-                        ramp_rotor_set, ramp_factor)
+            modquad_torque_control( F_single, M_single, structure, en_motor_sat)
 
-        # The sleep is to make the simulation look like it would in real life
-        rate.sleep()
-
-        # Simulate, obtain new state and state derivative
         F_structure  = np.array(F_structure) # Add Gaussian noise
         F_structure += np.random.normal(loc=0, scale=noise, size=F_structure.shape)
-        structure.state_vector = simulation_step( structure, 
-                                                  structure.state_vector, 
-		                                          F_structure, 
-                                                  M_structure, 
-                                                  1.0 / freq             )
 
-        # Compute residuals for error detection
-        des_yaw = 0 # yaw-variable above, confusingly, is actually yaw_rate
-        residual = compute_residual(structure.state_vector, desired_state,
-                                    roll, pitch, des_yaw)
-        #print("Residual = {}".format(residual))
-
-        # Process the residual - i.e. check for failed rotors via thresholding
-        # of residuals
-        if fault_exists(residual) and not diagnose_mode:
-            print("Enter Fault Diagnosis Mode")
-            diagnose_mode = True
-            quadrant = get_faulty_quadrant_rotors(residual, structure)
-            rotmat = rotpos_to_mat(structure, quadrant)
-            groups = form_groups(quadrant, rotmat)
-            print("Groups = {}".format(groups))
-            next_diag_t = 0
-
-        # If we are in the diagnose_mode, then we need to iteratively turn off
-        # the rotors in the quadrant and see what state error goes to
-        if diagnose_mode:
-            if t >= next_diag_t: # Update rotor set
-                # We found the faulty rotor
-                if (abs(residual[-3] < 0.03) and \
-                    abs(residual[-2]) < 0.03) and \
-                    len(ramp_rotor_set[0]) > 0:
-                #{
-                    print("State Est = {}".format(est))
-                    print("Residual = {}".format(residual[-3:-1]))
-
-                    # Recurse over set if not already single rotor
-                    if (len(ramp_rotor_set[0]) == 1): # Single rotor
-                        print("[\N{GREEK CAPITAL LETTER DELTA}t = {:.03f}] Injected ({}, {}), ID'd {}".format(
-                                t-inject_time, fmod, frot, ramp_rotor_set[0][0]),
-                                file=sys.stderr)
-                        with open(rfname, "a+") as f:
-                            print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-                            f.write("{}-Mod: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
-                                    len(structure.xx), t - inject_time, fmod, frot,
-                                    ramp_rotor_set[0]) 
-                            )
-                        sys.exit(0)
-
-                    print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
-                    assert len(ramp_rotor_set[0]) > 1
-
-                    rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
-
-                    # Form smaller subgroups
-                    groups = form_groups(ramp_rotor_set[0], rotmat)
-                    quadrant_idx = 0 # Reset
-                    print("New Groups: {}".format(groups))
-                    ramp_rotor_set = [[], ramp_rotor_set[0]]
-                #}
-                else:
-                    ramp_rotor_set, quadrant_idx = \
-                                    update_ramp_rotors(
-                                            structure,
-                                            t, next_diag_t,
-                                            groups, quadrant_idx,
-                                            rotmat,
-                                            ramp_rotor_set)
-                next_diag_t = t + fdd_interval
-                print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
-                print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
-                print("------------------------------------------------")
-            else: # Update ramping factors
-                ramp_factor = update_ramp_factors(t, next_diag_t, ramp_factor)
-=======
-                modquad_torque_control( F_single, M_single, 
-					structure, en_motor_sat)
 
         # Simulate, obtain new state and state derivative
         new_state_vector = simulation_step( structure, 
                                             structure.state_vector, 
-		                            F_structure, 
+		                                    F_structure, 
                                             M_structure, 
                                             1.0 / freq             )
 
         # Compute velocities manually
         structure.state_vector = new_state_vector #\
             #recompute_velocities(new_state_vector, structure.state_vector, 1.0 / freq)
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
 
         # Store data
         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
@@ -345,24 +213,12 @@ def simulate(structure, trajectory_function, sched_mset,
         desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
         M_log.append(M_structure)
         forces_log.append(rotor_forces)
+
         ind += 1.0
+        t += 1. / freq
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-        # Inject faults
-        if ( t >= tmax/10.0 and not faults_injected ):
-            faulty_rots = inject_faults(structure, max_faults, 
-                                        sched_mset, faulty_rots,
-                                        fmod, frot)
-            faults_injected = True
-            inject_time = t
-            #import pdb; pdb.set_trace()
-            print("Residual = {}".format(residual))
-
-=======
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
         # Sleep so that we can maintain a 100 Hz update rate
         rate.sleep()
-        t += 1. / freq
 
 
     rospy.loginfo("PLOTTING")
@@ -371,12 +227,9 @@ def simulate(structure, trajectory_function, sched_mset,
     pos_err_log /= ind
     pos_err_log = np.sqrt(pos_err_log)
     integral_val = np.sum(np.array(forces_log) ** 2) * (1.0 / freq)
-    #print("Final position = {}".format(structure.state_vector[:3]))
 
     if figind < 1:
-        #print("total integral={}".format(integral_val))
         return integral_val
-    #ax.grid()
 
     state_log = np.array(state_log)
     ax.plot(state_log[:, 0], state_log[:, 1], state_log[:, 2], 
@@ -531,7 +384,9 @@ def _takeoff(structure, freq, odom_publishers, tf_broadcaster):
 
         # Control output based on crazyflie input
         F_single, M_single = \
-                attitude_controller(structure, (thrust_newtons, roll, pitch, yawrate), yaw_des)
+                attitude_controller(structure, 
+                                    (thrust_newtons, roll, pitch, yawrate), 
+                                    yaw_des)
 
         en_motor_sat = True
         en_fail_rotor_act = True
@@ -545,7 +400,7 @@ def _takeoff(structure, freq, odom_publishers, tf_broadcaster):
         # Simulate, obtain new state and state derivative
         structure.state_vector = simulation_step( structure, 
                                                   structure.state_vector, 
-		                                  F_structure, 
+                                                  F_structure, 
                                                   M_structure, 
                                                   1.0 / freq             )
 
@@ -554,8 +409,7 @@ def _takeoff(structure, freq, odom_publishers, tf_broadcaster):
     rospy.loginfo("COMPLETED TAKEOFF")
 
 
-def test_shape_with_waypts(mset, wayptset, speed=1, test_id="", 
-        doreform=False, max_fault=1, rand_fault=False):
+def test_shape_with_waypts(mset, wayptset, speed=1):
 
     trajectory_function = min_snap_trajectory
     traj_vars = trajectory_function(0, speed, None, wayptset)
@@ -571,62 +425,14 @@ def test_shape_with_waypts(mset, wayptset, speed=1, test_id="",
     pi = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
 
-<<<<<<< HEAD:modquad_simulator/scripts/sim/alt_toggle_search_sim.py
-    simulate(struc1, trajectory_function, mset, 
-             figind=1, speed=speed, 
-             filesuffix="{}_f{}_reform".format(test_id, max_fault), 
-             max_faults=max_fault)
+    simulate(struc1, trajectory_function, mset, figind=1, speed=speed)
 
 if __name__ == '__main__':
-    global fmod, frot, faulty_rots, noise, rfname
-
-    faulty_rots = []
-    fmod = int(sys.argv[1])
-    frot = int(sys.argv[2])
-    n_idx= int(sys.argv[3])
-    ftype= int(sys.argv[4])
-    shape= int(sys.argv[5])
-
-    noise_arr = [ 0, 0.25, 0.5, 0.75, 1.0 ]
-    noise = noise_arr[n_idx]
-
-    structure = None
-    if shape == 1:
-        structure = structure_gen.plus(3, 3)
-    elif shape == 2:
-        structure = structure_gen.zero(3, 3)
-    elif shape == 3:
-        structure = structure_gen.rect(4, 3)
-    else:
-        raise Exception("Unknown shape num")
-
-    waypts = waypt_gen.helix(radius=2.5, rise=15, num_circ=15)
-
-    rospy.set_param("fdd_group_type", "log4")
-    random.seed(1)
-
-    rfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
-             "modquad_simulator/alt_fdd_toggle_results/"       + \
-             "n{:.01f}_fail{}.txt".format(noise, ftype)
-
-    print("starting simulation")
-    results = test_shape_with_waypts( structure, waypts,
-                       speed=3.5, test_id="3x3zero_2.5x1x2helix", 
-=======
-    forces, pos_err = simulate(struc1, trajectory_function, mset, 
-            figind=1, speed=speed, 
-            filesuffix="{}_f{}_reform".format(test_id, max_fault), 
-            max_faults=max_fault)
-
-    return [forces, pos_err, mset.pi]
-
-if __name__ == '__main__':
+    global noise
+    noise = 0.0 # Changes std deviation of the noise
     rospy.loginfo("starting simulation")
     random.seed(1)
-    results = test_shape_with_waypts(
-                       structure_gen.rect(4, 4), 
-                       waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5]),
-                       speed=0.15, test_id="4x4rect_2.5x1x2helix", 
->>>>>>> origin/modulardynamics_python2:modquad_simulator/scripts/sim/simple_traj_sim.py
-                       doreform=True, max_fault=1, rand_fault=False)
+    structure = structure_gen.rect(3, 3)
+    waypts = waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5])
+    results = test_shape_with_waypts( structure, waypts, speed=0.15 )
     print("---------------------------------------------------------------")

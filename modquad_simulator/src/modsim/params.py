@@ -14,7 +14,7 @@ from math import pi
 #    height = 0.012m
 chassis_width = 0.03#m 
 
-#m = 0.032  # mass (in kg) without cage (each is about 0.032kg)
+#m = 0.034   # mass (in kg) without cage (each is about 0.032kg)
 # m = 0.036  # mass (in kg) with bottom of cage
 
 #m = 0.034  # mass (in kg) no magnet 1x2 structure - mass for SIMULATION ALSO
@@ -47,9 +47,15 @@ cage_width = 0.115
 
 
 maxangle = 40 * pi / 180  # you can specify the maximum commanded angle here
+
+# Based on https://wiki.bitcraze.io/misc:investigations:thrust
+# Max thrust for entire quadrotor, NOT for an individual rotor
+maxF = 57.9 / g # Max thrust (60k PWM, 93.5% of actual max) is 57.9 g, convert to Newtons
+minF = 0.0
+
 # FIXME the maximum force should be 4*60g
-maxF = 2.5 * m * g  # left these untouched from the nano plus
-minF = 0.0 * m * g  # left these untouched from the nano plus
+#maxF = 2.5 * m * g  # left these untouched from the nano plus
+#minF = 0.0 * m * g  # left these untouched from the nano plus
 
 
 max_thrust = 0.597 # from bitcraze

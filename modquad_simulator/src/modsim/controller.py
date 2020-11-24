@@ -3,8 +3,11 @@ import modsim.params as params
 from math import sin, cos
 import numpy as np
 from math import sqrt
+import math
+from tf.transformations import euler_from_quaternion
+from modsim.util.thrust import convert_thrust_newtons_to_pwm
 
-def position_controller(structure, desired_state):
+def position_controller(structure, desired_state, dt):
     """
     PD controller to convert from position to accelerations, and accelerations to attitude.
     Controller: Using these current and desired states, you have to compute the desired controls
@@ -21,9 +24,12 @@ def position_controller(structure, desired_state):
     # Desired state
     [pos_des, vel_des, acc_des, yaw_des, des_yawdot] = desired_state
 
+    yaw_des = 0
+
     # current state
     pos = state_vector[:3]
     vel = state_vector[3:6]
+    avel= state_vector[-3:] # angular velocity, pqr
 
     # constants
     m = params.mass
@@ -35,212 +41,311 @@ def position_controller(structure, desired_state):
     is_unframed      = rospy.get_param("is_modquad_unframed", False)
     is_strong_rots   = rospy.get_param("is_strong_rots", True)
 
-    if is_sim:
-        # Multi mod control params - SIMULATOR
-        if num_mod > 30: # Not tuned yet
-            xyp =   7.0
-            xyd =  10.0
-            xyi =   0.01
-            zp  =   8.0
-            zd  =   5.0
-            zi  =   1.5
-        elif num_mod > 19: # 21-30 mods
-            xyp =  7.0
-            xyd =  20.0
-            xyi =   0.01
-            zp  =  10.0
-            zd  =  14.0
-            zi  =   2.5
-        elif num_mod > 12: # 13-20 mods
-            xyp =  7.0
-            xyd =  25.0
-            xyi =   0.01
-            zp  =  10.0
-            zd  =  14.0
-            zi  =   2.5
-        elif num_mod > 4: # 5-12 mods
-            # xyp =   10.0 
-            # xyd =   10.0 
-            # xyi =    0.01 
-            # zp  =   15.0
-            # zd  =   15.0 
-            # zi  =    1.5 
-            xyp =  15.0 
-            xyd =  30.0 
-            xyi =   0.01 
-            zp  =  15.0
-            zd  =  18.0 
-            zi  =   2.5 
-        # Control gains for 3-4 mods
-        elif num_mod > 3:
-            #xyp =  1.0
-            #xyd =  1.0
-            #xyi =   0.01
-            #zp  =   1.0
-            #zd  =   1.0
-            #zi  =   0.5
-            xyp =  10.0
-            xyd =  40.0
-            xyi =   0.01
-            zp  =  10.0
-            zd  =  30.0
-            zi  =   2.5
-            ##xyp =  29.0
-            ##xyd =  51.0
-            ##xyi =   0.01
-            ##zp  =  13.0
-            ##zd  =  18.0
-            ##zi  =   2.5
-        elif num_mod > 2:
-            xyp =  39.0
-            xyd =  91.0
-            xyi =   0.01
-            zp  =  13.0
-            zd  =  18.0
-            zi  =   0.01#2.5
-        elif num_mod == 2:
-            xyp =  30.0
-            xyd =  85.0
-            xyi =   0.01
-            zp  =  10.0
-            zd  =  18.0
-            zi  =   0.01
-        else: # Single module
-            #xyp =  9.0
-            #xyd = 18.0
-            #xyi =  0.01
-            xyp =  45.0   # 17.0
-            xyd =  50.0   # 99.0
-            xyi =   0.01  #  0.1 
-            zp  =   9.0   #  9.0
-            zd  =  18.0   # 18.0
-            zi  =   0.01  #  2.5
+    #import pdb; pdb.set_trace()
 
-    elif is_unframed: # REAL Single, unframed CF2
-        if not is_strong_rots:
-            xyp =  15.0  
-            xyd =  40.0  
-            xyi =   0.01
-            zp  =  15.0
-            zd  =  14.0
-            zi  =   1.5
-        else:
-            xyp =  38.0  
-            xyd =  38.0  
-            xyi =   0.03
-            zp  =   3.5
-            zd  =   3.0
-            zi  =   0.03
+    # if is_sim:
+    #     # Multi mod control params - SIMULATOR
+    #     if num_mod > 30: # Not tuned yet
+    #         xyp =   7.0
+    #         xyd =  10.0
+    #         xyi =   0.01
+    #         zp  =   8.0
+    #         zd  =   5.0
+    #         zi  =   1.5
+    #     elif num_mod > 19: # 21-30 mods
+    #         xyp =  7.0
+    #         xyd =  20.0
+    #         xyi =   0.01
+    #         zp  =  10.0
+    #         zd  =  14.0
+    #         zi  =   2.5
+    #     elif num_mod > 12: # 13-20 mods
+    #         xyp =  7.0
+    #         xyd =  25.0
+    #         xyi =   0.01
+    #         zp  =  10.0
+    #         zd  =  14.0
+    #         zi  =   2.5
+    #     elif num_mod > 4: # 5-12 mods
+    #         # xyp =   10.0 
+    #         # xyd =   10.0 
+    #         # xyi =    0.01 
+    #         # zp  =   15.0
+    #         # zd  =   15.0 
+    #         # zi  =    1.5 
+    #         xyp =  15.0 
+    #         xyd =  30.0 
+    #         xyi =   0.01 
+    #         zp  =  15.0
+    #         zd  =  18.0 
+    #         zi  =   2.5 
+    #     # Control gains for 3-4 mods
+    #     elif num_mod > 3:
+    #         #xyp =  1.0
+    #         #xyd =  1.0
+    #         #xyi =   0.01
+    #         #zp  =   1.0
+    #         #zd  =   1.0
+    #         #zi  =   0.5
+    #         xyp =  10.0
+    #         xyd =  40.0
+    #         xyi =   0.01
+    #         zp  =  10.0
+    #         zd  =  30.0
+    #         zi  =   2.5
+    #         ##xyp =  29.0
+    #         ##xyd =  51.0
+    #         ##xyi =   0.01
+    #         ##zp  =  13.0
+    #         ##zd  =  18.0
+    #         ##zi  =   2.5
+    #     elif num_mod > 2:
+    #         xyp =  39.0
+    #         xyd =  91.0
+    #         xyi =   0.01
+    #         zp  =  13.0
+    #         zd  =  18.0
+    #         zi  =   0.01#2.5
+    #     elif num_mod == 2:
+    #         xyp =  30.0
+    #         xyd =  85.0
+    #         xyi =   0.01
+    #         zp  =  10.0
+    #         zd  =  18.0
+    #         zi  =   0.01
+    #     else: # Single module
+    #         #xyp =  9.0
+    #         #xyd = 18.0
+    #         #xyi =  0.01
+    #         xyp =  45.0   # 17.0
+    #         xyd =  50.0   # 99.0
+    #         xyi =   0.01  #  0.1 
+    #         zp  =   9.0   #  9.0
+    #         zd  =  18.0   # 18.0
+    #         zi  =   0.01  #  2.5
+
+    # elif is_unframed: # REAL Single, unframed CF2
+    #     #if not is_strong_rots:
+    #     #    xyp =  15.0  
+    #     #    xyd =  40.0  
+    #     #    xyi =   0.01
+    #     #    zp  =  15.0
+    #     #    zd  =  14.0
+    #     #    zi  =   1.5
+    #     #else:
+    #     #    xyp =  38.0  
+    #     #    xyd =  38.0  
+    #     #    xyi =   0.03
+    #     #    zp  =   3.5
+    #     #    zd  =   3.0
+    #     #    zi  =   0.03
+
+    # CF Bolt
+    #xyp =   0.02
+    #xyd =   0.0
+    #xyi =   0.0001
+    #zp  =   0.5
+    #zd  =   0.0
+    #zi  =   0.0001
         
-    elif is_bottom_framed: # Single, bottom-framed CF2
-        xyp =  60.0 #  15.0 
-        xyd =  85.0 #  18.0 
-        xyi =   0.2 #   0.05
-        zp  =   8.0
-        zd  =  17.0
-        zi  =   0.5
-    else: # No Magnet, real robots
-        if num_mod == 2: # 2x1
-            xyp =  25.0  
-            xyd =  30.0  
-            xyi =   0.02
-            zp  =   9.0
-            zd  =   8.0
-            zi  =   0.2
-        elif num_mod == 3: # 1x3
-            xyp =  50.0
-            xyd =  35.0
-            xyi =   0.03
-            zp  =  14.0
-            zd  =  15.0
-            zi  =   0.1
-        elif num_mod >= 4: # 2x2
-            if not is_strong_rots:
-                xyp =  18.0  
-                xyd =  18.0  
-                xyi =   0.03
-                zp  =   2.5
-                zd  =   3.0
-                zi  =   0.05
-                #xyp =  15.0  
-                #xyd =  40.0  
-                #xyi =   0.01
-                #zp  =  15.0
-                #zd  =  14.0
-                #zi  =   1.5
-            else:
-                xyp =   8.0  
-                xyd =   8.0  
-                xyi =   0.01
-                zp  =   2.5
-                zd  =   3.0
-                zi  =   0.05
+    #elif is_bottom_framed: # Single, bottom-framed CF2
+    #    xyp =  60.0 #  15.0 
+    #    xyd =  85.0 #  18.0 
+    #    xyi =   0.2 #   0.05
+    #    zp  =   8.0
+    #    zd  =  17.0
+    #    zi  =   0.5
+    #else: # No Magnet, real robots
+    #    if num_mod == 2: # 2x1
+    #        xyp =  25.0  
+    #        xyd =  30.0  
+    #        xyi =   0.02
+    #        zp  =   9.0
+    #        zd  =   8.0
+    #        zi  =   0.2
+    #    elif num_mod == 3: # 1x3
+    #        xyp =  50.0
+    #        xyd =  35.0
+    #        xyi =   0.03
+    #        zp  =  14.0
+    #        zd  =  15.0
+    #        zi  =   0.1
+    #    elif num_mod >= 4: # 2x2
+    #        if not is_strong_rots:
+    #            xyp =  18.0  
+    #            xyd =  18.0  
+    #            xyi =   0.03
+    #            zp  =   2.5
+    #            zd  =   3.0
+    #            zi  =   0.05
+    #            #xyp =  15.0  
+    #            #xyd =  40.0  
+    #            #xyi =   0.01
+    #            #zp  =  15.0
+    #            #zd  =  14.0
+    #            #zi  =   1.5
+    #        else:
+    #            xyp =   8.0  
+    #            xyd =   8.0  
+    #            xyi =   0.0
+    #            zp  =   1.2
+    #            zd  =  20.0
+    #            zi  =   0.0
+    #            #xyp =  15.0  
+    #            #xyd =  40.0  
+    #            #xyi =   0.01
+    #            #zp  =  15.0
+    #            #zd  =  14.0
+    #            #zi  =   1.5
+    #            #xyp =   8.0  
+    #            #xyd =   8.0  
+    #            #xyi =   0.01
+    #            #zp  =   2.5
+    #            #zd  =   3.0
+    #            #zi  =   0.05
 
-    max_ang      = 0.1
-    max_yaw_rate = 0.01
+    if is_sim:
+        xyp = 30.0 # 40 #  20.0
+        xyd = 15.0 # 20 #  40.0
+        xyi =  0.5 #  2 #   0.0 
+
+        # z gains multiplied by mass
+        zp  = 7000 # 5000# 32 * 1.5
+        zd  = 7770 #27770 # 6000# 32 * 4.0
+        zi  = 3500 # 3500# 32 * 0
+
+        yaw_kp =  -5 # -200 # -5 #-200
+        yaw_kd = -12 # -100 #-12 # -20
+        yaw_ki =   0 #    0 #  0 #   0
+
+        # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
+        max_ang      =  2.5 # 10.0
+        max_yaw_rate = 30.0 #200.0
+
+    else: # real, standard-pwr rots
+        xyp = 30.0 # 40 #  20.0
+        xyd = 15.0 # 20 #  40.0
+        xyi =  0.5 #  2 #   0.0 
+
+        # z gains multiplied by mass
+        zp  =  7000 # 5000# 32 * 1.5
+        zd  =  7770 # 6000# 32 * 4.0
+        zi  =  3500 # 3500# 32 * 0
+
+        yaw_kp =  -5 # -200 # -5 #-200
+        yaw_kd = -12 # -100 #-12 # -20
+        yaw_ki =   0 #    0 #  0 #   0
+
+        # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
+        max_ang      =  2.5 # 10.0
+        max_yaw_rate = 30.0 #200.0
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp2_u, kd2_u, ki2_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 
     kp3_u, kd3_u, ki3_u =   zp,   zd,   zi # 10.0, 48.0, 0.0 
 
+    euler = euler_from_quaternion(state_vector[6:10])
+    cur_yaw = euler[2]
+
+
+    #import pdb; pdb.set_trace()
     # Error
-    pos_error = np.array(pos_des) - np.array(pos)
-    vel_error = np.array(vel_des) - np.array(vel)
-    structure.pos_accumulated_error += np.array(pos_error)
+    #import pdb; pdb.set_trace()
+    pos_error = (np.array(pos_des) - np.array(pos))
+    #vel_error = (np.array(vel_des) - np.array(vel))
+    yaw_error = yaw_des - cur_yaw
+    structure.prev_error = structure.error
+    structure.error = np.array([pos_error[0], pos_error[1], pos_error[2], yaw_error])
+    if np.all(structure.prev_error == 0): # Happens at initialization
+    	structure.prev_error = structure.error
+    vel_error = (structure.error - structure.prev_error) / dt
+
+    #rospy.loginfo("cyaw={}, dyaw={}, err={}, verr={}".format(
+    #    cur_yaw, yaw_des, yaw_des - cur_yaw, vel_error[-1]
+    #))
+    #rospy.loginfo("state = {}".format(state_vector))
+
+    # Update the accumulated error in all three dimensions
+    max_error = np.array([0.1, 0.1, 1000.0])
+    structure.pos_accumulated_error += np.array(pos_error * dt)
+    min_indices = structure.pos_accumulated_error < -max_error
+    max_indices = structure.pos_accumulated_error >  max_error
+    structure.pos_accumulated_error[min_indices] = -max_error[min_indices]
+    structure.pos_accumulated_error[max_indices] =  max_error[max_indices]
+    #rospy.loginfo(structure.pos_accumulated_error)
+
 
     # Desired acceleration
     r1_acc = kp1_u * pos_error[0] + \
              kd1_u * vel_error[0] + \
-                     acc_des[0]   + \
              ki1_u * structure.pos_accumulated_error[0]
+                     #acc_des[0]   + \
 
     r2_acc = kp2_u * pos_error[1] + \
              kd2_u * vel_error[1] + \
-                      acc_des[1]   + \
              ki2_u * structure.pos_accumulated_error[1]
+                      #acc_des[1]   + \
 
+    #rospy.loginfo("perr={}, verr={}, accerr={}".format(
+    #    pos_error[2], vel_error[2], structure.pos_accumulated_error[2]
+    #))
     r3_acc = kp3_u * pos_error[2] + \
              kd3_u * vel_error[2] + \
-                     acc_des[2]   + \
              ki3_u * structure.pos_accumulated_error[2]
+                     #acc_des[2]   + \
 
-    # print("----- R1 -----")
-    # print("{} * {} + {} * {} + {} + {} * {} = {}".format(
-    #     kp1_u, pos_error[0], kd1_u, vel_error[0], acc_des[0],
-    #     ki1_u, structure.pos_accumulated_error[0], r1_acc
-    # ))
-    # print("----- R2 -----")
-    # print("{} * {} + {} * {} + {} + {} * {} = {}".format(
-    #     kp2_u, pos_error[1], kd2_u, vel_error[1], acc_des[1],
-    #     ki2_u, structure.pos_accumulated_error[1], r2_acc
-    # ))
-    # print("----- R3 -----")
-    # print("{} * {} + {} * {} + {} + {} * {} = {}".format(
-    #     kp3_u, pos_error[2], kd3_u, vel_error[2], acc_des[2],
-    #     ki3_u, structure.pos_accumulated_error[2], r3_acc
-    # ))
-    # print("=======================")
+    #import pdb; pdb.set_trace()
+
+    #print("----- R1 -----")
+    #print("{} * {} + {} * {} + {} + {} * {} = {}".format(
+    #    kp1_u, pos_error[0], kd1_u, vel_error[0], acc_des[0],
+    #    ki1_u, structure.pos_accumulated_error[0], r1_acc
+    #))
+    #print("----- R2 -----")
+    #print("{} * {} + {} * {} + {} + {} * {} = {}".format(
+    #    kp2_u, pos_error[1], kd2_u, vel_error[1], acc_des[1],
+    #    ki2_u, structure.pos_accumulated_error[1], r2_acc
+    #))
+    #print("----- R3 -----")
+    #print("{} * ({}-{}) + {} * {} + {} + {} * {} = {}".format(
+    #    kp3_u, pos_des[2], pos[2], kd3_u, vel_error[2], acc_des[2],
+    #    ki3_u, structure.pos_accumulated_error[2], r3_acc
+    #))
+    #print("=======================")
 
     # ------------------------------ #
     # Effectively, since yaw_des = 0 #
     # phi_des   = -r2_acc / g        #
     # theta_des =  r1_acc / g        #
-    phi_des   = (r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g
-    theta_des = (r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g
-    psi_des   = yaw_des
+    #rad_yaw_des = math.radians(yaw_des)
+    if is_sim:
+    	phi_des   =  -r2_acc # ((r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g)
+    else:
+    	phi_des   =  -r2_acc # ((r1_acc * sin(yaw_des) - r2_acc * cos(yaw_des)) / g)
+    theta_des =   r1_acc # ((r1_acc * cos(yaw_des) + r2_acc * sin(yaw_des)) / g)
+
+    # Compute new output yaw rate
+    psi_des = yaw_kp * yaw_error + yaw_kd * vel_error[3]
 
     # Orientation max angle limiting
     phi_des   = max(min(phi_des  , max_ang), -max_ang)
     theta_des = max(min(theta_des, max_ang), -max_ang)
 
     # Max yaw rate needs more limiting
-    psi_des   = max(min(psi_des  , max_yaw_rate), -max_yaw_rate)
+    psi_dot_des   = max(min(psi_des, max_yaw_rate), -max_yaw_rate)
 
     # Thrust
-    thrust = m * g + m * r3_acc
+    # FIXME Effect of gravity is negligible since thrust now in PWM instead of Newtons
+    #thrust = m * g + r3_acc # Removed "m *" term from r3_acc, mass in gains
+    thrust = r3_acc #+ convert_thrust_newtons_to_pwm(params.m * params.g)
+
+    #rospy.loginfo("thrust={}".format(thrust))
+    thrust = min(max(thrust, 0000), 60000)
+
+    #print([thrust, phi_des, theta_des, psi_des])
 
     # desired thrust and attitude
-    return [thrust, phi_des, theta_des, psi_des]
+    return [thrust, phi_des, theta_des, psi_dot_des]
 
 def modquad_torque_control(F, M, structure,
                             motor_sat=False, en_fail_rotor=False, 
@@ -376,8 +481,8 @@ def modquad_torque_control(F, M, structure,
 
 
     # From prop forces to total moments. Equation (1) of the modquad paper (ICRA 18)
-    F = np.sum(rotor_forces)
-    Mx = np.dot(ry, rotor_forces)
+    F  =  np.sum(rotor_forces)
+    Mx =  np.dot(ry, rotor_forces) # Neeraj: Added negative sign
     My = -np.dot(rx, rotor_forces)
     # TODO Mz
     Mz = M[2]

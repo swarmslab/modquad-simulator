@@ -12,6 +12,24 @@ from modquad_simulator.srv import RotorToggle, RotorToggleResponse
 from modquad_simulator.srv import SingleRotorToggle, SingleRotorToggleResponse
 from modquad_simulator.srv import SetMotors, SetMotorsResponse
 
+def handle_switch_to_kalman(msg):
+    rospy.set_param("stabilizer/estimator", 2)
+    try:
+        update_params = rospy.ServiceProxy('update_params', UpdateParams)
+        success = update_params( ['stabilizer/estimator'] )
+
+        # THIS MUST SUCCEED
+        if not success:
+            rospy.loginfo("Setting estimator to Kalman failed!")
+            assert success
+        else:
+            rospy.loginfo('Switched to Kalman Successfully')
+        return EmptyResponse()
+
+    except rospy.ServiceException as e:
+        rospy.logerr(
+            "Service Switch to Kalman firmware update failed: {}".format(e))
+
 # Crazyflie dynamics parameters
 def handle_zero_att_i_gains(msg):
     # msg is Empty, just used as a trigger
@@ -62,9 +80,9 @@ def handle_change_single_rot_en(msg):
     #else:
     #    rospy.loginfo("Request disable R{}".format(rot_id))
 
-    rospy.loginfo("Wait for update_params service")
-    rospy.wait_for_service('update_params')
-    rospy.loginfo("Found update_params service")
+    #rospy.loginfo("Wait for update_params service")
+    #rospy.wait_for_service('update_params')
+    #rospy.loginfo("Found update_params service")
 
     try:
         update_params = rospy.ServiceProxy('update_params', UpdateParams)
@@ -167,6 +185,7 @@ def handle_change_dym(msg):
 
     return NewParamsResponse()
 
+
 def set_motors_srv(msg):
     # time =
 
@@ -194,6 +213,9 @@ def acquire_params():
 
     rospy.loginfo("Advertise zero_att_i_gains service")
     rospy.Service('zero_att_i_gains', Empty, handle_zero_att_i_gains)
+
+    rospy.loginfo("Advertise switch_to_kalman_filter service")
+    rospy.Service('switch_to_kalman_filter', Empty, handle_switch_to_kalman)
 
     rospy.loginfo("Advertise change_dynamics service")
     rospy.Service('change_dynamics', NewParams, handle_change_dym)

@@ -50,22 +50,22 @@ class Structure:
         self.yy = np.array(self.yy) - np.average(self.yy)
 
         # Equation (4) of the Modquad paper
-        # FIXME inertia with parallel axis theorem is not working. Temporary multiplied by zero
-        #self.inertia_tensor = self.n * np.array(params.I) + 1.0 * params.mass * np.diag([
-        #     np.sum(self.yy ** 2),
-        #     np.sum(self.xx ** 2),
-        #     np.sum(self.yy ** 2) + np.sum(self.xx ** 2)
-        # ])
-        self.inertia_tensor = 0.5 * self.n * np.array(params.I) + 0.0 * params.mass * np.diag([
-            np.sum(self.yy ** 2),
-            np.sum(self.xx ** 2),
-            np.sum(self.yy ** 2) + np.sum(self.xx ** 2)
-        ])
+        self.inertia_tensor = self.n * np.array(params.I) + params.mass * np.diag([
+             np.sum(self.yy ** 2),
+             np.sum(self.xx ** 2),
+             np.sum(self.yy ** 2) + np.sum(self.xx ** 2)
+         ])
 
         self.pos_accumulated_error = np.array([0.0, 0.0, 0.0])
         self.att_accumulated_error = np.array([0.0, 0.0, 0.0])
-        self.traj_vars = None    # Populate this
-        self.state_vector = [] # Populate this
+        self.traj_vars         = None # Populate this
+        self.state_vector      = []   # Populate this
+        self.prev_state_vector = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0]) # Populate this
+
+        # error in [x,y,z,phi,theta,yaw]
+        self.error      = np.array([0,0,0,0]) # Populate this
+        self.prev_error = np.array([0,0,0,0]) # Populate this
+        self.prev_time  = 0
 
         # self.inertia_tensor = np.array(params.I)
         try:
@@ -271,10 +271,10 @@ class Structure:
         # Send new parameter set to each robot
         for id_robot, xi, yi, rid in rot_list:
             # Send to dynamic attitude parameters
-            rospy.loginfo('Wait for service /{}/toggle_single_rotor'.format(id_robot))
+            #rospy.loginfo('Wait for service /{}/toggle_single_rotor'.format(id_robot))
             service_name = '/{}/toggle_single_rotor'.format(id_robot)
-            rospy.wait_for_service(service_name)
-            rospy.loginfo('Found service /{}/toggle_single_rotor'.format(id_robot))
+            #rospy.wait_for_service(service_name)
+            #rospy.loginfo('Found service /{}/toggle_single_rotor'.format(id_robot))
 
             try:
                 toggle_single_rotor = rospy.ServiceProxy(service_name, SingleRotorToggle)
