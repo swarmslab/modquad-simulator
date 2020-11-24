@@ -42,6 +42,8 @@ def helix(radius, rise, num_circ, start_pt=[0.0,0.0,0.0]):
     #loc = [start_pt[0], start_pt[1], start_pt[2]]
     loc = [0.0, 0.0, 0.0]
     waypts = [copy.copy(loc)]
+    if not np.all(start_pt == 0):
+        waypts.append(start_pt)
     theta = 0.0
     for i in range(int(num_circ)):
         theta = 0.0

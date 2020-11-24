@@ -1,6 +1,7 @@
 import numpy as np
 
 from transforms3d import euler as trans
+from tf.transformations import euler_from_quaternion
 
 ###### Initial state
 from modsim.datatype.quadstate import QuadState
@@ -33,8 +34,13 @@ def state_to_quadrotor(x):
     pos = x[:3]
     vel = x[3:6]
     qx, qy, qz, qw = x[6:10]
+
     # I dont know why it has to be negative
     euler = -np.array(trans.quat2euler([qw, qx, qy, qz]))
+
+    # Neeraj: Made this change trying to fix attitude bug
+    #euler = euler_from_quaternion(x[6:10])
+    #euler = np.array([euler[0], euler[1], euler[2]])
     omega = x[10:]
 
     return QuadState(pos, vel, euler, omega)
