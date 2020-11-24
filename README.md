@@ -42,18 +42,10 @@ As well as the actual crazyflie robot, the simulated quadrotor receives two inpu
 Once the simulator is running, we can send desired goals to the robots.  The
 following script runs a demo that takes off the robots and makes them move in a
 circle.
-```
-rosrun demo-simulator demo_circle_multiple.py
-```
 
-We can also see some simple tests of bound structures using the command:
+One pre-configured demo is a 3x3 square structure flying in a helix:
 ```
-rosrun modquad-simulator control_testing.py
-```
-
-Further, we can simulate the injection of faulty rotors using
-```
-rosrun modquad-simulator fdd_profile_sim.py $faulty_module $faulty_rotor
+rosrun demo-simulator helix_3x3structure.py
 ```
 
 #### Demo for Reconfiguration
