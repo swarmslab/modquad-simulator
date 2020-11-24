@@ -2,8 +2,8 @@
     <!--Number of robots-->
     <arg name="nr" default="1"/>
 
-   	<arg name="model" value="modquad$(arg nr)" if="$(eval arg('nr') > 10)"/>
-  	<arg name="model" value="modquad0$(arg nr)" if="$(eval -1 * arg('nr') > -11)"/>
+   	<arg name="model" value="modquad$(arg nr)" if="$(eval arg('nr') > 9)"/>
+  	<arg name="model" value="modquad0$(arg nr)" if="$(eval -1 * arg('nr') > -10)"/>
 
     <arg name="config_path"/>
     <arg name="uri" default="radio://0/100/2M/0xE7E7E7E7E7"/>

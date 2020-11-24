@@ -191,7 +191,7 @@ def detect_dockings():
         dock_pub.publish(msg)
 
         if iteration > 10:
-            manual_docking = [1] # [15, 14]
+            manual_docking = [2] # [15, 14]
         else:
             iteration += 1
 

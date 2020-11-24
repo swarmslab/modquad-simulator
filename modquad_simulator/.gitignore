@@ -2,3 +2,6 @@ figs/
 generated.rviz
 mqscheduler/
 log*md
+*profiles*/
+*results/
+fault_detection.py

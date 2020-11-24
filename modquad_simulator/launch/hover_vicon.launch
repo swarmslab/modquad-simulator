@@ -37,6 +37,8 @@
       <param name="z" value="$(arg z)" />
     </node>
 
+	</node>
+
     <!--<node pkg="tf" type="static_transform_publisher" name="world_to_odom_broadcaster" args="0 0 0 0 0 0 1 world /modquad13/base_link 100" />-->
     <node pkg="tf" type="static_transform_publisher" name="baselink_broadcaster" args="0 0 0 0 0 0 1 world /modquad13/base_link 10" />
   </group>

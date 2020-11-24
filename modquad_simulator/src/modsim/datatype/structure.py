@@ -159,9 +159,9 @@ class Structure:
                 msg = NewParamsRequest()
 
                 # Update...?
-                msg.Cx =  2  # Cx - unused
-                msg.Cy =  2  # Cy - unused
-                msg.Cz = nc  # Cz
+                msg.Cx = 1 #2  # Cx - unused
+                msg.Cy = 1 #2  # Cy - unused
+                msg.Cz = 1 #nc  # Cz
 
                 # Update roll constants
                 msg.S_y1 = Sy[0]
