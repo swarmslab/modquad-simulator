@@ -44,6 +44,7 @@ from modsim.util.flight import sim_takeoff, sim_land
 
 # Fault detection functions
 from modsim.util.fault_detection import fault_exists,               \
+                                        fault_exists_real,          \
                                         get_faulty_quadrant_rotors, \
                                         update_ramp_rotors,         \
                                         update_ramp_factors,        \
@@ -94,8 +95,10 @@ def recompute_velocities(new_state, old_state, dt):
     return state_vec
 
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
+    global faulty_rots, fmod, frot
+
     rospy.init_node('modrotor_simulator', anonymous=True)
-    params.init_params(speed)
+    params.init_params(speed, is_sim=True)
 
     state_log = []
     forces_log = []
@@ -137,25 +140,46 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     # TF publisher
     tf_broadcaster = tf2_ros.TransformBroadcaster()
 
+    # Logging
+    tlog = []
+    desired_cmd_log = []
+    M_log = []
+    single_log = []
+    struct_log = []
+    desx = []
+    desy = []
+    desz = []
+
+    # Params tracked during sim
     freq = 100  # 100hz
     rate = rospy.Rate(freq)
     t = 0
     ind = 0.0
 
-    tlog = []
-    desired_cmd_log = []
-    M_log = []
-
-    sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
+    # Params for fault tracking and IDing
+    ramp_rotor_set  = [[], []]
+    ramp_factors    = [1, 0]
+    diagnose_mode   = False
+    faults_injected = False
+    residual        = []
+    quadrant        = []
+    rotmat          = []
+    groups          = []
+    inject_time     = 0
 
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
 
-    while not rospy.is_shutdown() and t < overtime*tmax + 1.0 / freq:
+    sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
+
+    while not rospy.is_shutdown() and t < 30: #overtime*tmax + 1.0 / freq:
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
+        desx.append(desired_state[0][0])
+        desy.append(desired_state[0][1])
+        desz.append(desired_state[0][2])
 
         # Compute control inputs
         [thrust_pwm, roll, pitch, yawrate] = \
@@ -170,23 +194,59 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
         en_motor_sat = True
 
-        # Control of Moments and thrust
+        # Control of Moments and thrust with rotor faults DISabled
+        en_motor_fail= False
+        F_structure_est, M_structure_est, rotor_forces_est = \
+                modquad_torque_control( F_single, M_single, 
+					structure, en_motor_sat, en_motor_fail, fail_type=2)
+
+        # No noise added to estimate because this assumes "perfectness"
+        # TODO: Verify this is reasonable, I think it is but want to be sure
+
+        # Simulate, obtain new state and state derivative assuming no failures
+        est_state_vector = simulation_step( structure, 
+                                            structure.state_vector, 
+		                                    F_structure_est, 
+                                            M_structure_est, 
+                                            1.0 / freq             )
+
+        # Control of Moments and thrust with rotor faults ENabled
+        en_motor_fail= True
         F_structure, M_structure, rotor_forces = \
                 modquad_torque_control( F_single, M_single, 
-					structure, en_motor_sat)
+					structure, en_motor_sat, en_motor_fail, fail_type=2)
 
-        # Simulate, obtain new state and state derivative
-        new_state_vector = simulation_step( structure, 
+        # Inject some noise to rotor operation to make more realistic
+        F_structure += np.random.normal(loc=0, scale=0.25,
+                                        size=F_structure.shape)
+
+        # Simulate, obtain new state and state derivative with failures
+        structure.state_vector = simulation_step( structure, 
                                             structure.state_vector, 
 		                                    F_structure, 
                                             M_structure, 
                                             1.0 / freq             )
 
-        # Compute velocities manually
-        structure.state_vector = new_state_vector #\
-            #recompute_velocities(new_state_vector, structure.state_vector, 1.0 / freq)
+        # Compute residual
+        residual = np.array(desired_state[0]) - structure.state_vector[:3]
+                    # - est_state_vector
+
+        #if inject_time > 0 and t - inject_time > 1.5:
+        #    import pdb; pdb.set_trace()
+
+        # Check for faults
+        if fault_exists(residual[:3]) and not diagnose_mode:
+            rospy.loginfo("Fault detected, enter diagnosis mode")
+            diagnose_mode = True
+            quadrant = get_faulty_quadrant_rotors(residual, structure)
+            rotmat = rotpos_to_mat(structure, quadrant)
+            groups = form_groups(quadrant, rotmat)
+            rospy.loginfo("Groups = {}".format(groups))
+            next_diag_t = 0
 
         # Store data
+        single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
+        struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
         tlog.append(t)
         state_log.append(np.copy(structure.state_vector))
@@ -194,6 +254,16 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         M_log.append(M_structure)
         forces_log.append(rotor_forces)
         ind += 1.0
+
+        # Check if we need to inject faults
+        if ( t >= 8.0 and not faults_injected ):
+            max_faults = 1
+            faulty_rots = inject_faults(structure, max_faults, 
+                                        sched_mset, faulty_rots,
+                                        fmod, frot)
+            faults_injected = True
+            inject_time = t
+            #print("Residual = {}".format(residual))
 
         # Sleep so that we can maintain a 100 Hz update rate
         rate.sleep()
@@ -207,6 +277,9 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     pos_err_log /= ind
     pos_err_log = np.sqrt(pos_err_log)
     integral_val = np.sum(np.array(forces_log) ** 2) * (1.0 / freq)
+
+    single_log = np.array(single_log)
+    struct_log = np.array(struct_log)
 
     if figind < 1:
         return integral_val
@@ -233,8 +306,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     # Plot first one so that we can do legend
     plt.subplot(4,2,figind+0)
     plt.plot(tlog, state_log[:, 0], color='r', linewidth=lw)
-    plt.plot(twaypt, traj_vars.waypts[:,0], 
-                alpha=alphaset, color='g', linewidth=lw)
+    plt.plot(tlog, desx, alpha=alphaset, color='g', linewidth=lw)
+    plt.axvline(inject_time, color='grey')
     plt.ylabel("X (m)", size=ylabelsize)
     plt.gca().set_ylim(xmin, xmax)
     plt.gca().xaxis.set_ticklabels([])
@@ -245,8 +318,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     plt.subplot(4,2,figind+2)
     plt.plot(tlog, state_log[:, 1], color='r', linewidth=lw)
-    plt.plot(twaypt, traj_vars.waypts[:,1], 
-                alpha=alphaset, color='g', linewidth=lw)
+    plt.plot(tlog, desy, alpha=alphaset, color='g', linewidth=lw)
+    plt.axvline(inject_time, color='grey')
     plt.ylabel("Y (m)", size=ylabelsize)
     plt.gca().set_ylim(ymin, ymax)
     plt.gca().xaxis.set_ticklabels([])
@@ -254,8 +327,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     plt.subplot(4,2,figind+4)
     plt.plot(tlog, state_log[:, 2], color='r', linewidth=lw)
-    plt.plot(twaypt, traj_vars.waypts[:,2], 
-                alpha=alphaset, color='g', linewidth=lw)
+    plt.plot(tlog, desz, alpha=alphaset, color='g', linewidth=lw)
+    plt.axvline(inject_time, color='grey')
     plt.ylabel("Z (m)", size=ylabelsize)
     plt.gca().set_ylim(zmin, zmax)
     plt.gca().xaxis.set_ticklabels([])
@@ -266,6 +339,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     ax.set_xlabel("Time (sec)")
     ax.set_ylabel("Force (N)", size=ylabelsize)
     ax.plot(tlog, np.array(forces_log) ** 2, color='r', linewidth=lw)
+    ax.axvline(inject_time, color='grey')
     ax.set_ylim(0, 0.10)
     ax.grid()
 
@@ -287,6 +361,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     ax2.set_ylabel(r"$\phi$ (deg)", size=ylabelsize)
     ax2.plot(tlog, atts[:, 0], color='r', linewidth=lw)
     ax2.plot(tlog, desired_cmd_log[:, 1], color='g', linewidth=lw)
+    ax2.axvline(inject_time, color='grey')
     ax2.set_ylim(-10, 10)
     ax2.grid()
 
@@ -300,6 +375,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     ax0.set_ylabel(r"$\theta$ (deg)", size=ylabelsize)
     ax0.plot(tlog, atts[:, 1], color='r', linewidth=lw)
     ax0.plot(tlog, desired_cmd_log[:, 2], color='g', linewidth=lw)
+    ax0.axvline(inject_time, color='grey')
     ax0.set_ylim(-10, 10)
     ax0.grid()
 
@@ -310,16 +386,34 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     # Yaw Rate
     ax4 = plt.subplot(4,2,figind+5)
-    ax4.set_xlabel("Time (sec)")
     ax4.set_ylabel(r"$\dot{\psi}$ (deg/s)", size=ylabelsize)
     ax4.plot(tlog, state_log[:, -1], color='r', linewidth=lw)
     ax4.plot(tlog, desired_cmd_log[:, 3], color='g', linewidth=lw)
+    ax4.axvline(inject_time, color='grey')
     ax4.grid()
 
     # Mz
     ax5 = ax4.twinx()
     ax5.plot(tlog, M_log[:, 2], 'c')
     ax5.set_ylabel(r"$M_z (N.m)$ cyan")
+
+    # Single and Structure plots
+    ax6 = plt.subplot(4,2,figind+7)
+    ax6.plot(tlog, single_log[:, 0], 'c', linewidth=lw)
+    ax6.plot(tlog, struct_log[:, 0], 'c--', linewidth=lw)
+    ax6.set_ylabel(r"$F (N)$ cyan")
+
+    # Mz
+    ax7 = ax6.twinx()
+    ax7.set_xlabel("Time (sec)")
+    ax7.set_ylabel(r"$M$ (N.m)", size=ylabelsize)
+    ax7.plot(tlog, single_log[:, 1], color='b', linewidth=lw)
+    ax7.plot(tlog, single_log[:, 2], color='m', linewidth=lw)
+    ax7.plot(tlog, struct_log[:, 1], 'b--', linewidth=lw)
+    ax7.plot(tlog, struct_log[:, 2], 'm--', linewidth=lw)
+    ax7.axvline(inject_time, color='grey')
+    ax7.grid()
+
 
     plt.show()
 
@@ -352,8 +446,14 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
     simulate(struc1, trajectory_function, mset, figind=1, speed=speed)
 
 if __name__ == '__main__':
+    global faulty_rots, fmod, frot
+    # Hard-coding module 1, rotor 1 to be faulty
+    faulty_rots = []
+    fmod = 1
+    frot = 1
     random.seed(1)
     structure = structure_gen.plus(3, 3)
     waypts = waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5])
-    results = test_shape_with_waypts( structure, waypts, speed=0.15 )
+    #waypts = waypt_gen.hover_line(rise=0.5)
+    results = test_shape_with_waypts( structure, waypts, speed=0.10 )
     print("---------------------------------------------------------------")

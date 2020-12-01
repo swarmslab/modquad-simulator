@@ -1,3 +1,4 @@
+import rospy
 import numpy as np
 from math import pi
 
@@ -50,7 +51,9 @@ maxangle = 40 * pi / 180  # you can specify the maximum commanded angle here
 
 # Based on https://wiki.bitcraze.io/misc:investigations:thrust
 # Max thrust for entire quadrotor, NOT for an individual rotor
-maxF = 57.9 / g # Max thrust (60k PWM, 93.5% of actual max) is 57.9 g, convert to Newtons
+# https://www.unitconverters.net/force/gram-force-to-newton.htm
+#maxF = 57.9 * 0.00980665 # / g # Max thrust (60k PWM, 93.5% of actual max) is 57.9 g, convert to Newtons
+maxF = 59.7 * 0.00980665 # / g # Max thrust (60k PWM, 93.5% of actual max) is 57.9 g, convert to Newtons
 minF = 0.0
 
 # FIXME the maximum force should be 4*60g
@@ -64,3 +67,15 @@ class RunType:
     SIM = 0
     VICON = 1
     FLOWDECK = 2
+
+
+def init_params(speed, is_sim, fdd_group="log4", fdd_interval=5.0):
+    """
+    Initializes rosparams used in the simulation
+    """
+    rospy.set_param('opmode', 'normal') # What is this for?
+    rospy.set_param('rotor_map', 1) # Only set to "2" if doing reconfigure_sims
+    rospy.set_param('structure_speed', speed) # in m/s
+    rospy.set_param("fault_det_time_interval", fdd_interval)
+    rospy.set_param('is_modquad_sim', is_sim)
+    rospy.set_param("fdd_group_type", fdd_group)

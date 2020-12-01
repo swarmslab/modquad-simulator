@@ -6,8 +6,18 @@ import numpy as np
 # Old error
 #accumulated_error = np.array([0., 0., 0.])
 
+en_att_i_gain = False
+
+def enable_attitude_i_gain():
+    global en_att_i_gain
+    en_att_i_gain = True
+
+def disable_attitude_i_gain():
+    global en_att_i_gain
+    en_att_i_gain = False
 
 def attitude_controller(structure, control_in, yaw_des):
+    global en_att_i_gain
     """
     Attitude controller for crazyflie, receiving pwm as input.
     the output are forces and moments. F_newtons in Newtons
@@ -26,13 +36,18 @@ def attitude_controller(structure, control_in, yaw_des):
     # Quaternion to angles
     quad_state = state_to_quadrotor(x)
 
-    # Where are these numbers from?
-    #kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .0002 # ORIGINAL
-    kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .000000 # ORIGINAL
 
-    e = [math.radians(roll_des) - quad_state.euler[0],
-         math.radians(pitch_des) - quad_state.euler[1],
-         math.radians(yaw_des) - quad_state.euler[2]]
+    # Where are these numbers from? -> From Nanokontrol Kumar lab repo
+    #kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .0002 # ORIGINAL
+    if en_att_i_gain:
+        num_mod = len(structure.xx)
+        kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .0002 / (num_mod/2.5)
+    else:
+        kpx, kdx, kix = 1.43e-5 * 250, 1.43e-5 * 60, .0000
+
+    e = [max(min(math.radians(roll_des)  - quad_state.euler[0], 0.05), -0.05),
+         max(min(math.radians(pitch_des) - quad_state.euler[1], 0.05), -0.05),
+         max(min(math.radians(yaw_des)   - quad_state.euler[2], 0.05), -0.05)]
 
     structure.att_accumulated_error += e
     #print(accumulated_error[0])

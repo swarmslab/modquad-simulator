@@ -44,7 +44,7 @@ def publish_pos(x, pub):
 
     pub.publish(odom)
 
-def publish_odom(x, pub):
+def publish_odom(x, pub, child_frame='modquad', world_frame='world'):
     """
     Convert quad state into an odometry message and publish it.
     :param x: 
@@ -78,8 +78,8 @@ def publish_odom(x, pub):
     odom.twist.twist.angular.y = x[11]
     odom.twist.twist.angular.z = x[12]
 
-    odom.child_frame_id = 'modquad'
-    odom.header.frame_id = 'world'
+    odom.child_frame_id = child_frame
+    odom.header.frame_id = world_frame
 
     pub.publish(odom)
 

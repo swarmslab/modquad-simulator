@@ -45,9 +45,16 @@ def convert_thrust_pwm_to_newtons(thrust_pwm):
 
     # Re-did the best-fit line based on data from 
     # https://wiki.bitcraze.io/misc:investigations:thrust
+    # ORIGINAL
     c1 =  6.3590474 * pow(10, -10)
     c2 =  5.5956151 * pow(10, -5)
     c3 = -0.0100687
+
+    # MODIFIED FOR WAY MORE THRUST
+    #c1 =  1.2718095 * pow(10, -9)
+    #c2 =  0.0001119
+    #c3 = -0.0201375
+
     F_n = c1 * (thrust_pwm ** 2) + c2 * thrust_pwm + c3
 
     if F_n < 0:

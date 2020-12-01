@@ -6,3 +6,5 @@ log*md
 *results/
 src/modsim/util/code
 src/modsim/util/fault_detection.py
+*swp
+*swo
