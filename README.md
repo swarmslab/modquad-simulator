@@ -45,7 +45,7 @@ circle.
 
 One pre-configured demo is a 3x3 square structure flying in a helix:
 ```
-rosrun demo-simulator helix_3x3structure.py
+rosrun demo_simulator helix_3x3structure.py
 ```
 
 #### Demo for Reconfiguration
