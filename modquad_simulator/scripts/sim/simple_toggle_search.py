@@ -149,6 +149,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     desx = []
     desy = []
     desz = []
+    residual_log = []
 
     # Params tracked during sim
     freq = 100  # 100hz
@@ -224,7 +225,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 					structure, en_motor_sat, en_motor_fail, fail_type=2)
 
         # Inject some noise to rotor operation to make more realistic
-        F_structure += np.random.normal(loc=0, scale=0.25,
+        F_structure += np.random.normal(loc=0, scale=0.5,
                                         size=F_structure.shape)
 
         # Simulate, obtain new state and state derivative with failures
@@ -235,17 +236,21 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                                             1.0 / freq             )
 
         # Compute residual
-        residual = np.array(desired_state[0]) - structure.state_vector[:3]
+        residual = est_state_vector - structure.state_vector
+        residual_log.append(residual)
+
+        #residual = np.array(desired_state[0]) - structure.state_vector[:3]
+
                     # - est_state_vector
 
         #if inject_time > 0 and t - inject_time > 1.5:
         #    import pdb; pdb.set_trace()
 
         # Check for faults
-        if fault_exists(residual[:3]) and not diagnose_mode:
+        if fault_exists(residual_log) and not diagnose_mode:
             rospy.loginfo("Fault detected, enter diagnosis mode")
             diagnose_mode = True
-            quadrant = get_faulty_quadrant_rotors(residual, structure)
+            quadrant = get_faulty_quadrant_rotors(residual_log, structure)
             rotmat = rotpos_to_mat(structure, quadrant)
             groups = form_groups(quadrant, rotmat)
             rospy.loginfo("Groups = {}".format(groups))
@@ -261,7 +266,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                     len(ramp_rotor_set[0]) > 0:
                 #{
                     rospy.loginfo("State Est = {}".format(est_state_vector[-3:]))
-                    rospy.loginfo("Residual = {}".format(residual[-3:-1]))
+                    rospy.loginfo("Residual = {}".format(residual))
 
                     # Recurse over set if not already single rotor
                     if (len(ramp_rotor_set[0]) == 1): # Single rotor
@@ -273,6 +278,15 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                         #            len(structure.xx), t - inject_time, fmod, frot, ramp_rotor_set[0])
                         #    )
                         print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                        # Store data
+                        single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
+                        struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
+                        pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
+                        tlog.append(t)
+                        state_log.append(np.copy(structure.state_vector))
+                        desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
+                        M_log.append(M_structure)
+                        forces_log.append(rotor_forces)
                         break
                         sys.exit(0)
 
@@ -474,6 +488,14 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     ax7.axvline(inject_time, color='grey')
     ax7.grid()
 
+    fres = plt.figure()
+    residual_log = np.array([r.tolist() for r in residual_log])
+    plt.axvline(inject_time, color='grey', linewidth=lw)
+    plt.plot(tlog, residual_log[:, -3], 
+             'b', label=r"$\dot{\phi}$ Residual"  , linewidth=lw)
+    plt.plot(tlog, residual_log[:, -2], 
+             'm', label=r"$\dot{\theta}$ Residual", linewidth=lw)
+    plt.legend(loc='lower left')
 
     plt.show()
 
@@ -509,11 +531,11 @@ if __name__ == '__main__':
     global faulty_rots, fmod, frot
     # Hard-coding module 1, rotor 1 to be faulty
     faulty_rots = []
-    fmod = 1
+    fmod = 3
     frot = 1
     random.seed(1)
-    structure = structure_gen.plus(3, 3)
+    structure = structure_gen.rect(3, 3)
     waypts = waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5])
     #waypts = waypt_gen.hover_line(rise=0.5)
-    results = test_shape_with_waypts( structure, waypts, speed=0.10 )
+    results = test_shape_with_waypts( structure, waypts, speed=0.15 )
     print("---------------------------------------------------------------")

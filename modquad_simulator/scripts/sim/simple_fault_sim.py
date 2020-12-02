@@ -20,7 +20,7 @@ from modsim.trajectory import circular_trajectory, simple_waypt_trajectory, \
     min_snap_trajectory
 
 from modsim import params
-from modsim.attitude import attitude_controller
+from modsim.attitude import attitude_controller, enable_attitude_i_gain
 # from modsim.plot.drawer_vispy import Drawer
 
 from modsim.datatype.structure import Structure
@@ -169,6 +169,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
 
+    enable_attitude_i_gain()
     sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
     while not rospy.is_shutdown() and t < 30: #overtime*tmax + 1.0 / freq:
