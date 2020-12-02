@@ -179,7 +179,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
-    while not rospy.is_shutdown() and t < 30: #overtime*tmax + 1.0 / freq:
+    while not rospy.is_shutdown() and t < 60: #overtime*tmax + 1.0 / freq:
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -263,9 +263,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         if diagnose_mode:
             if t >= next_diag_t: # Update rotor set
                 # We found the faulty rotor
-                if (abs(residual[-3] < 0.001) and \
-                    abs(residual[-2]) < 0.001) and \
-                    len(ramp_rotor_set[0]) > 0:
+                if (np.sum(np.abs(residual[-3])+np.abs(residual[-2])) < 0.005) \
+                    and len(ramp_rotor_set[0]) > 0:
                 #if found_right_suspect_set(residual_log) and \
                 #    len(ramp_rotor_set[0]) > 0:
                 #{
@@ -535,7 +534,7 @@ if __name__ == '__main__':
     global faulty_rots, fmod, frot
     # Hard-coding module 1, rotor 1 to be faulty
     faulty_rots = []
-    fmod = 3
+    fmod = 9
     frot = 1
     random.seed(1)
     structure = structure_gen.rect(3, 3)
