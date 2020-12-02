@@ -278,7 +278,7 @@ def _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces):
             #    if rotor_forces[4 * (ind) + mf[1]] >= (params.maxF / 4.0) / 4.0:
             #        rotor_forces[4 * (ind) + mf[1]] = (params.maxF / 4.0) / 4.0
             elif fail_type == 2: # HALVE THRUST RANGE
-                rotor_forces[4 * (ind) + mf[1]] *= 0.75
+                rotor_forces[4 * (ind) + mf[1]] *= 0.45
 
             elif fail_type == 3: # 1/4TH THRUST RANGE
                 rotor_forces[4 * (ind) + mf[1]] /= 4.0
