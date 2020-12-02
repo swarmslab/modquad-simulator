@@ -191,11 +191,16 @@ def modquad_torque_control(F, M, structure,
         rotor_forces[rotor_forces > params.maxF / 4] = params.maxF / 4.0
         rotor_forces[rotor_forces < params.minF / 4] = params.minF / 4.0
 
-    # If there are faulty rotors, have their impact take place if enabled
-    rotor_forces = _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces)
-
     # Update rotor forces being ramped on/off as part of fault IDing
-    rotor_forces = _check_for_rotor_ramping(ramp_rotor_set, ramp_factor, rotor_forces)
+    rotor_forces = _check_for_rotor_ramping(ramp_rotor_set, ramp_factor,
+                                            rotor_forces, structure)
+
+    # If there are faulty rotors, have their impact take place if enabled
+    # NOTE: This must be done after the rotor ramping check, because it
+    #       will only reduce the thrust further if the rotor_force of the failed
+    #       rotor is below a threshold
+    rotor_forces = _check_for_failed_rotors(en_fail_rotor, fail_type, 
+                                            structure, rotor_forces)
 
     # From prop forces to total moments. Equation (1) of the modquad paper (ICRA 18)
     F  =  np.sum(rotor_forces)
@@ -278,7 +283,8 @@ def _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces):
             #    if rotor_forces[4 * (ind) + mf[1]] >= (params.maxF / 4.0) / 4.0:
             #        rotor_forces[4 * (ind) + mf[1]] = (params.maxF / 4.0) / 4.0
             elif fail_type == 2: # HALVE THRUST RANGE
-                rotor_forces[4 * (ind) + mf[1]] *= 0.45
+                if rotor_forces[4 * (ind) + mf[1]] > 0.45 * params.maxF * 0.25:
+                    rotor_forces[4 * (ind) + mf[1]] = 0.45 * params.maxF * 0.25
 
             elif fail_type == 3: # 1/4TH THRUST RANGE
                 rotor_forces[4 * (ind) + mf[1]] /= 4.0
@@ -298,7 +304,8 @@ def _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces):
 
     return rotor_forces
 
-def _check_for_rotor_ramping(ramp_rotor_set, ramp_factor, rotor_forces):
+def _check_for_rotor_ramping(ramp_rotor_set, ramp_factor, 
+                             rotor_forces, structure):
     # If ramping is being done, use ramping factors to update thrusts
     # Ramping is part of fault detection mechanism
     if len(ramp_rotor_set) > 0:

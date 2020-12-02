@@ -206,7 +206,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         en_motor_fail= False
         F_structure_est, M_structure_est, rotor_forces_est = \
                 modquad_torque_control( F_single, M_single, 
-					structure, en_motor_sat, en_motor_fail, fail_type=2)
+					structure, en_motor_sat, en_motor_fail, fail_type=2,
+                    ramp_rotor_set=ramp_rotor_set, ramp_factor=ramp_factors)
 
         # No noise added to estimate because this assumes "perfectness"
         # TODO: Verify this is reasonable, I think it is but want to be sure
@@ -222,7 +223,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         en_motor_fail= True
         F_structure, M_structure, rotor_forces = \
                 modquad_torque_control( F_single, M_single, 
-					structure, en_motor_sat, en_motor_fail, fail_type=2)
+					structure, en_motor_sat, en_motor_fail, fail_type=2,
+                    ramp_rotor_set=ramp_rotor_set, ramp_factor=ramp_factors)
 
         # Inject some noise to rotor operation to make more realistic
         F_structure += np.random.normal(loc=0, scale=0.5,
@@ -261,9 +263,11 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         if diagnose_mode:
             if t >= next_diag_t: # Update rotor set
                 # We found the faulty rotor
-                if (abs(residual[-3] < 0.03) and \
-                    abs(residual[-2]) < 0.03) and \
+                if (abs(residual[-3] < 0.001) and \
+                    abs(residual[-2]) < 0.001) and \
                     len(ramp_rotor_set[0]) > 0:
+                #if found_right_suspect_set(residual_log) and \
+                #    len(ramp_rotor_set[0]) > 0:
                 #{
                     rospy.loginfo("State Est = {}".format(est_state_vector[-3:]))
                     rospy.loginfo("Residual = {}".format(residual))
