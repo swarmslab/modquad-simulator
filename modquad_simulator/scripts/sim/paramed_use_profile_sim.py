@@ -353,7 +353,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                 suslist = []
                 [suslist.append(x[1]) 
                     for x in order.values() 
-                        if x[1] not in suslist and x[1] in quadrant]
+                        if x[1] not in suslist]
 
                 # Update after filtering
                 suspects = suslist

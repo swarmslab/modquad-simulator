@@ -269,6 +269,8 @@ def _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces):
     if not en_fail_rotor:
         return rotor_forces
 
+    min_ramp = rospy.get_param("min_ramp")
+
     for mf in structure.motor_failure:
         try:
             ind = structure.ids.index('modquad{:02d}'.format(mf[0]))
@@ -283,8 +285,8 @@ def _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces):
             #    if rotor_forces[4 * (ind) + mf[1]] >= (params.maxF / 4.0) / 4.0:
             #        rotor_forces[4 * (ind) + mf[1]] = (params.maxF / 4.0) / 4.0
             elif fail_type == 2: # HALVE THRUST RANGE
-                if rotor_forces[4 * (ind) + mf[1]] > 0.25 * params.maxF * 0.25:
-                    rotor_forces[4 * (ind) + mf[1]] = 0.25 * params.maxF * 0.25
+                if rotor_forces[4 * (ind) + mf[1]] > 0.25 * params.maxF * min_ramp:
+                    rotor_forces[4 * (ind) + mf[1]] = 0.25 * params.maxF * min_ramp
 
             elif fail_type == 3: # 1/4TH THRUST RANGE
                 rotor_forces[4 * (ind) + mf[1]] /= 4.0
