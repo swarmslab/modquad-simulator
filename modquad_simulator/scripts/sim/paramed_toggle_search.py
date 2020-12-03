@@ -95,10 +95,12 @@ def recompute_velocities(new_state, old_state, dt):
     return state_vec
 
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
-    global faulty_rots, fmod, frot, noise_std_dev, rfname
+    global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile
 
     rospy.init_node('modrotor_simulator', anonymous=True)
     params.init_params(speed, is_sim=True, fdd_group="indiv")
+
+    show_plots = False
 
     state_log = []
     forces_log = []
@@ -229,6 +231,10 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         # Inject some noise to rotor operation to make more realistic
         F_structure += np.random.normal(loc=0, scale=noise_std_dev,
                                         size=F_structure.shape)
+        M_structure = np.array(M_structure)
+        M_structure += np.random.normal(loc=0, scale=0.0001,
+                                        size=M_structure.shape)
+        M_structure = M_structure.tolist()
 
         # Simulate, obtain new state and state derivative with failures
         structure.state_vector = simulation_step( structure, 
@@ -499,8 +505,10 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     plt.plot(tlog, residual_log[:, -2], 
              'm', label=r"$\dot{\theta}$ Residual", linewidth=lw)
     plt.legend(loc='lower left')
+    plt.savefig(figfile+"_pq-res.png")
 
-    plt.show()
+    if show_plots:
+        plt.show()
 
     plt.clf() # Clear figures
     try:
@@ -531,7 +539,7 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
     simulate(struc1, trajectory_function, mset, figind=1, speed=speed)
 
 if __name__ == '__main__':
-    global faulty_rots, fmod, frot, noise_std_dev, rfname
+    global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile
     # Hard-coding module 1, rotor 1 to be faulty
     faulty_rots = []
     fmod = int(sys.argv[1])
@@ -544,22 +552,34 @@ if __name__ == '__main__':
     noise_std_dev = noise_arr[noise_idx]
 
     shape_idx = int(sys.argv[4])
+    shape_str = ""
     if shape_idx == 0:
         structure = structure_gen.rect(3, 3)
+        shape_str = "3x3r"
     elif shape_idx == 1:
         structure = structure_gen.rect(3, 4)
+        shape_str = "3x4r"
     elif shape_idx == 2:
         structure = structure_gen.rect(4, 4)
+        shape_str = "4x4r"
     elif shape_idx == 3:
         structure = structure_gen.zero(3, 3)
+        shape_str = "3x3z"
     elif shape_idx == 4:
         structure = structure_gen.zero(4, 4)
+        shape_str = "4x4z"
     elif shape_idx == 5:
         structure = structure_gen.plus(3, 3)
+        shape_str = "3x3p"
     elif shape_idx == 6:
         structure = structure_gen.plus(5, 5)
+        shape_str = "5x5p"
     else:
         raise Exception("Unsupported structure shape index")
+
+    figfile = "/home/arch/catkin_ws/src/modquad-simulator/" + \
+             "modquad_simulator/fdd_toggle_figs/"       + \
+             "{}_({},{})_n{:.01f}".format(shape_str, fmod, frot, noise_std_dev)
 
     rfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
              "modquad_simulator/fdd_toggle_results/"       + \
