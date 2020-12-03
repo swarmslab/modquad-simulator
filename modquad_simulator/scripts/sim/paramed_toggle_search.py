@@ -187,9 +187,6 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
-        desx.append(desired_state[0][0])
-        desy.append(desired_state[0][1])
-        desz.append(desired_state[0][2])
 
         # Compute control inputs
         [thrust_pwm, roll, pitch, yawrate] = \
@@ -288,6 +285,9 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                             )
                         print("The faulty rotor is {}".format(ramp_rotor_set[0]))
                         # Store data
+                        desx.append(desired_state[0][0])
+                        desy.append(desired_state[0][1])
+                        desz.append(desired_state[0][2])
                         single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
                         struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
                         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
@@ -319,6 +319,9 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                                             rotmat,
                                             ramp_rotor_set)
                     if quadrant_idx == -1:
+                        desx.append(desired_state[0][0])
+                        desy.append(desired_state[0][1])
+                        desz.append(desired_state[0][2])
                         single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
                         struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
                         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
@@ -338,6 +341,9 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
  
 
         # Store data
+        desx.append(desired_state[0][0])
+        desy.append(desired_state[0][1])
+        desz.append(desired_state[0][2])
         single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
         struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
