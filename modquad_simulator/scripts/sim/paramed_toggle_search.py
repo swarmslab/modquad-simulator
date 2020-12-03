@@ -318,6 +318,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                                             groups, quadrant_idx,
                                             rotmat,
                                             ramp_rotor_set)
+                    if quadrant_idx == -1:
+                        break
                 next_diag_t = t + fdd_interval
                 print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
                 print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
