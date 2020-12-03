@@ -69,12 +69,12 @@ class RunType:
     FLOWDECK = 2
 
 
-def init_params(speed, is_sim, fdd_group="log4", fdd_interval=5.0):
+def init_params(speed, is_sim, fdd_group="log4", fdd_interval=5.0, rmap_mode=1):
     """
     Initializes rosparams used in the simulation
     """
     rospy.set_param('opmode', 'normal') # What is this for?
-    rospy.set_param('rotor_map', 1) # Only set to "2" if doing reconfigure_sims
+    rospy.set_param('rotor_map', rmap_mode) # Changes order of rotors in arrays
     rospy.set_param('structure_speed', speed) # in m/s
     rospy.set_param("fault_det_time_interval", fdd_interval)
     rospy.set_param('is_modquad_sim', is_sim)

@@ -174,7 +174,7 @@ def modquad_torque_control(F, M, structure,
     L = params.arm_length * sqrt(2) / 2.
 
     # Get position of each rotor in the structure
-    rx, ry = _get_rotor_positions(structure)
+    rx, ry = structure.get_rotor_positions()
 
     # Convert rotor position to signs
     sign_rx = [1 if rx_i > 0 else -1 for rx_i in rx]
@@ -217,52 +217,6 @@ def modquad_torque_control(F, M, structure,
     #print('---')
 
     return F, [Mx, My, Mz], rotor_forces
-
-def _get_rotor_positions(structure):
-    ## From moments to rotor forces (power distribution)
-    # positions of the rotors
-    #         ^ X
-    #    (4)  |      (1) [L, -L]
-    #   Y<-----
-    #    (3)         (2)
-
-    # Will change later, but the mqscheduler package was written as:
-    #    (3)    |    (2) [L, -L]
-    #     ------------
-    #    (4)    |    (1)
-    # So this needs to do a transferance
-
-    # 1 is the first mapping, 2 is the second
-    rotor_map_mode = rospy.get_param("rotor_map", 1) 
-
-    rx, ry = [], []
-    L = params.arm_length * sqrt(2) / 2.
-
-    for x, y in zip(structure.xx, structure.yy):
-        if rotor_map_mode == 1:
-            # x-axis
-            rx.append(x + L) # R
-            rx.append(x - L)
-            rx.append(x - L)
-            rx.append(x + L)
-            # y-axis
-            ry.append(y - L)
-            ry.append(y - L)
-            ry.append(y + L)
-            ry.append(y + L)
-        else:
-            # x-axis
-            rx.append(x - L) # R
-            rx.append(x + L)
-            rx.append(x + L)
-            rx.append(x - L)
-            # y-axis
-            ry.append(y - L)
-            ry.append(y - L)
-            ry.append(y + L)
-            ry.append(y + L)
-
-    return rx, ry
 
 def _check_for_failed_rotors(en_fail_rotor, fail_type, structure, rotor_forces):
     # Failing motors -- IDs are 1-indexed, but rotor pos are 0-indexed

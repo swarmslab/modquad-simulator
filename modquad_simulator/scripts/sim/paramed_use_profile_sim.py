@@ -601,7 +601,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
              'm', label=r"$\dot{\theta}$ Residual", linewidth=lw)
     plt.legend(loc='lower left')
 
-    plt.show()
+    #plt.show()
 
     plt.clf() # Clear figures
     try:
@@ -661,6 +661,11 @@ if __name__ == '__main__':
         structure = structure_gen.plus(5, 5)
     else:
         raise Exception("Unsupported structure shape index")
+
+    min_ramp_idx = int(sys.argv[5])
+    min_ramp_arr = [0, 0.25, 0.5, 0.75]
+    min_ramp     = min_ramp_arr[min_ramp_idx]
+    rospy.set_param('min_ramp', min_ramp)
 
     rfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
              "modquad_simulator/prof_results/"       + \

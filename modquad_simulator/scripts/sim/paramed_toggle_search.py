@@ -98,9 +98,9 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile
 
     rospy.init_node('modrotor_simulator', anonymous=True)
-    params.init_params(speed, is_sim=True, fdd_group="indiv")
+    params.init_params(speed, is_sim=True, fdd_group="indiv", rmap_mode=3)
 
-    show_plots = False
+    show_plots = True
 
     state_log = []
     forces_log = []
