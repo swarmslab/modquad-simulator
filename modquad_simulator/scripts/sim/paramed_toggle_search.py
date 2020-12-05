@@ -95,12 +95,11 @@ def recompute_velocities(new_state, old_state, dt):
     return state_vec
 
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
-    global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile
-
-    rospy.init_node('modrotor_simulator', anonymous=True)
-    params.init_params(speed, is_sim=True, fdd_group="indiv", rmap_mode=3)
+    global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile, shape_str
 
     show_plots = True
+
+    flevel = 1.0 - rospy.get_param('min_ramp')
 
     state_log = []
     forces_log = []
@@ -276,12 +275,12 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
                     # Recurse over set if not already single rotor
                     if (len(ramp_rotor_set[0]) == 1): # Single rotor
-                        print("\t\t[\N{GREEK CAPITAL LETTER DELTA}t = {:.03f}] Injected ({}, {}), ID'd {}".format(
+                        print("\t\t[DELTA t = {:.03f}] Injected ({}, {}), ID'd {}".format(
                                 t-inject_time, fmod, frot, ramp_rotor_set[0][0]),
                                 file=sys.stderr)
                         with open(rfname, "a+") as f:
-                            f.write("{}-Mod: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
-                                    len(structure.xx), t - inject_time, fmod, frot, ramp_rotor_set[0])
+                            f.write("{}, F{}, N{}: [DELTA t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
+                                    shape_str, flevel, noise_std_dev, t - inject_time, fmod, frot, ramp_rotor_set[0])
                             )
                         print("The faulty rotor is {}".format(ramp_rotor_set[0]))
                         # Store data
@@ -536,6 +535,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     return integral_val, pos_err_log
 
 def test_shape_with_waypts(mset, wayptset, speed=1):
+    params.init_params(speed, is_sim=True, fdd_group="indiv", rmap_mode=3)
+
     # Initialize the min snap trajectory
     trajectory_function = min_snap_trajectory
     traj_vars = trajectory_function(0, speed, None, wayptset)
@@ -551,11 +552,13 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
     pi = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
 
+    rospy.init_node('modrotor_simulator', anonymous=True)
+
     # Run the simulation
     simulate(struc1, trajectory_function, mset, figind=1, speed=speed)
 
 if __name__ == '__main__':
-    global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile
+    global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile, shape_str
     # Hard-coding module 1, rotor 1 to be faulty
     faulty_rots = []
     fmod = int(sys.argv[1])
