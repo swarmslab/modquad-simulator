@@ -97,7 +97,7 @@ def recompute_velocities(new_state, old_state, dt):
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile, shape_str
 
-    show_plots = True
+    show_plots = False
 
     flevel = 1.0 - rospy.get_param('min_ramp')
 
