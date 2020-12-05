@@ -99,7 +99,7 @@ def recompute_velocities(new_state, old_state, dt):
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     global faulty_rots, fmod, frot, noise_std_dev, rfname, prof_prefix, shape_str
 
-    do_not_plot = False
+    do_not_plot = True
     profile_time = 5.0 # sec
 
     rospy.init_node('modrotor_simulator', anonymous=True)
@@ -274,7 +274,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         t += 1. / freq
 
         # Check if we need to inject faults
-        if ( t >= 8.0 and not faults_injected ):
+        if ( t >= 7.0 and not faults_injected ):
             max_faults = 1
             faulty_rots = inject_faults(structure, max_faults, 
                                         sched_mset, faulty_rots,
@@ -301,10 +301,10 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         if not diagnose_mode:
             continue
 
-        if len(ramp_rotor_set[0]) > 0:
-            ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
 
         if t < next_diag_t: # Update ramping factors
+            if len(ramp_rotor_set[0]) > 0:
+                ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
             continue
 
         num_mod = len(structure.xx)

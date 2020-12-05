@@ -258,7 +258,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         ind += 1.0
 
         # Check if we need to inject faults
-        if ( t >= 8.0 and not faults_injected ):
+        if ( t >= 7.0 and not faults_injected ):
             max_faults = 1
             faulty_rots = inject_faults(structure, max_faults, 
                                         sched_mset, faulty_rots,
@@ -547,17 +547,17 @@ if __name__ == '__main__':
         raise Exception("Unsupported structure shape index")
 
     min_ramp_idx = int(sys.argv[5])
-    min_ramp_arr = [0, 0.25, 0.5, 0.75]
+    min_ramp_arr = [0, 0.25, 0.5, 0.75, 0.3, 0.4, 0.375]
     min_ramp     = min_ramp_arr[min_ramp_idx]
     rospy.set_param('min_ramp', min_ramp)
 
     rfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
              "modquad_simulator/fdd_toggle_results/"       + \
-             "n{:.01f}_f{:.2f}.txt".format(noise_std_dev, min_ramp)
+             "n{:.01f}_f{:.3f}.txt".format(noise_std_dev, min_ramp)
 
     pfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
              "modquad_simulator/profiles/"                 + \
-             "n{:.01f}_f{:.2f}.txt".format(noise_std_dev, min_ramp)
+             "n{:.01f}_f{:.3f}.txt".format(noise_std_dev, min_ramp)
 
     random.seed(1)
     waypts = waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5])
