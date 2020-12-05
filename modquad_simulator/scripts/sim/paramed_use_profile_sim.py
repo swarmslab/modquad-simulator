@@ -97,13 +97,16 @@ def recompute_velocities(new_state, old_state, dt):
     return state_vec
 
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
-    global faulty_rots, fmod, frot, noise_std_dev, rfname, prof_prefix
+    global faulty_rots, fmod, frot, noise_std_dev, rfname, prof_prefix, shape_str
 
     do_not_plot = False
-    profile_time = 3.0 # sec
+    profile_time = 5.0 # sec
 
     rospy.init_node('modrotor_simulator', anonymous=True)
-    params.init_params(speed, is_sim=True, fdd_group="indiv")
+    params.init_params(speed, is_sim=True, 
+                        fdd_group="indiv", fdd_interval=5.0, rmap_mode=3)
+
+    flevel = 1.0 - rospy.get_param('min_ramp')
 
     state_log = []
     forces_log = []
@@ -173,10 +176,12 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     groups          = [] # Sets of suspected rotors
     inject_time     = 0  # Time at which fault is injected
     quadrant_idx    = 0  # Which rotor group is being tested from suspect list
-    win_size        = 300# 3 seconds of data to use for profile suspect IDing
+    # secs of data to use for suspect IDing
+    win_size        = int(profile_time * freq) 
     # Time per ramped rotor set to examine if it is faulty
     fdd_interval = rospy.get_param("fault_det_time_interval")
     attempted_sus   = set()
+    has_generated_suspects = False
 
 
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
@@ -186,7 +191,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
-    while not rospy.is_shutdown() and t < 60: #overtime*tmax + 1.0 / freq:
+    while not rospy.is_shutdown() and t < 80: #overtime*tmax + 1.0 / freq:
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -284,6 +289,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             diagnose_mode = True
             quadrant = get_faulty_quadrant_rotors(residual_log, structure)
             rotmat = rotpos_to_mat(structure, quadrant)
+            print(rotmat)
             groups = form_groups(quadrant, rotmat)
             rospy.loginfo("Groups = {}".format(groups))
 
@@ -295,9 +301,10 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         if not diagnose_mode:
             continue
 
+        if len(ramp_rotor_set[0]) > 0:
+            ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
+
         if t < next_diag_t: # Update ramping factors
-            if len(ramp_rotor_set[0]) > 0:
-                ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
             continue
 
         num_mod = len(structure.xx)
@@ -313,25 +320,17 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             if (len(ramp_rotor_set[0]) == 1): # Single rotor
                 with open(rfname, "a+") as f:
                     print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-                    f.write("2 {}-Mod: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} | [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Suspects: {}\n".format(
-                            num_mod, t - inject_time, fmod, frot,
+                    f.write("2 {}, F{}, N{}, [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} | [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Suspects: {}\n".format(
+                            shape_str, flevel, noise_std_dev, t - inject_time, fmod, frot,
                             ramp_rotor_set[0], sus_del_time, suspects), 
                     )
-                return
-
-            print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
-
-            rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
-
-            # Form smaller subgroups
-            groups = form_groups(ramp_rotor_set[0], rotmat)
-            quadrant_idx = 0 # Reset
-            print("New Groups: {}".format(groups))
-            ramp_rotor_set = [[], ramp_rotor_set[0]]
+                break
+            raise Exception("Group size should be 1 when using profiles...")
         #}
-        else:
+        else: # Have not yet found faulty rotor
         #{
-            if next_diag_t <= t:
+            if next_diag_t <= t and not has_generated_suspects:
+            #{
                 suspects = find_suspects_by_profile_prefix( structure, 
                                                 residual_log[-win_size:],
                                                 prof_prefix             )
@@ -353,17 +352,19 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                 suslist = []
                 [suslist.append(x[1]) 
                     for x in order.values() 
-                        if x[1] not in suslist]
+                        if x[1] not in suslist and 
+                           x[1] in quadrant]
 
                 # Update after filtering
                 suspects = suslist
+                has_generated_suspects = True
 
                 sus_del_time = t - inject_time
 
                 if len(suspects) == 1:
                     with open(rfname, "a+") as f:
-                        f.write("1 {}-Mod: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), Suspects: {}\n".format(
-                                    num_mod, sus_del_time, fmod, frot, suspects)
+                        f.write("1 {}, F{}, N{}: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), Suspects: {}\n".format(
+                                    shape_str, flevel, noise_std_dev, sus_del_time, fmod, frot, suspects)
                         )
                     return
 
@@ -371,80 +372,62 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
                 rotmat = rotpos_to_mat(structure, suspects)
                 groups = form_groups(suspects, rotmat)
-                print("New Groups: {}".format(groups))
+                print("Ranked suspect list: {}".format(groups))
+
                 if len(ramp_rotor_set[0]) > 0:
                     ramp_rotor_set = [[], ramp_rotor_set[0]]
                 else:
                     ramp_rotor_set = [groups[0], []]
-            else:
-                ramp_rotor_set, quadrant_idx = \
-                            expand_from_epictr(
-                                    structure, t, next_diag_t,
-                                    groups, quadrant_idx, rotmat,
-                                    ramp_rotor_set)
+
+                next_diag_t = t + fdd_interval
+                print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+                print("Ramp factors = {}".format(ramp_factors))
+                print("t = {:03f}, next_check = {:03f}".format(
+                        t, next_diag_t))
+                print("------------------------------------------------")
+            #}
+            elif next_diag_t <= t and has_generated_suspects:
+            #{
+                    ramp_rotor_set, quadrant_idx = \
+                                    update_ramp_rotors(
+                                            structure,
+                                            t, next_diag_t,
+                                            groups, quadrant_idx,
+                                            rotmat,
+                                            ramp_rotor_set)
+                    if quadrant_idx == -1:
+                    #{
+                        desx.append(desired_state[0][0])
+                        desy.append(desired_state[0][1])
+                        desz.append(desired_state[0][2])
+                        single_log.append([F_single, M_single[0], M_single[1],
+M_single[2]])
+                        struct_log.append([F_structure, M_structure[0],
+M_structure[1], M_structure[2]])
+                        pos_err_log += np.power(desired_state[0] -
+structure.state_vector[:3], 2)
+                        tlog.append(t)
+                        state_log.append(np.copy(structure.state_vector))
+                        desired_cmd_log.append([thrust_newtons, roll, pitch,
+yawrate])
+                        M_log.append(M_structure)
+                        forces_log.append(rotor_forces)
+                        break
+                    #}
+                    next_diag_t = t + fdd_interval
+                    print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+                    print("Ramp factors = {}".format(ramp_factors))
+                    print("t = {:03f}, next_check = {:03f}".format(
+                            t, next_diag_t))
+                    print("------------------------------------------------")
+
+            #}
+            #else:
+            ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
         #}
-
-        next_diag_t = t + fdd_interval
-
-        print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
-        print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
-        print("------------------------------------------------")
 
 
     sim_land(structure, freq, odom_publishers, tf_broadcaster)
-
-    #    # Store the residuals
-    #    entries = np.array(residual_log[-int(freq*profile_time):])
-    #    min_entry = np.min(entries, axis=0)
-    #    max_entry = np.max(entries, axis=0)
-    #    med_entry = np.median(entries, axis=0)
-    #    avg_entry = np.mean(entries, axis=0)
-    #    res = {}
-    #    res['min'] = min_entry.tolist()
-    #    res['max'] = max_entry.tolist()
-    #    res['med'] = med_entry.tolist()
-    #    res['avg'] = avg_entry.tolist()
-    #    #entries = np.array([min_entry, max_entry, med_entry, avg_entry])
-    #
-    #    # Store the residual in a file
-    #    pdata = {}
-    #
-    #    # Check if file already exists in a json format
-    #    try:
-    #        with open(pfname, "r+") as f:
-    #            pass
-    #    except:
-    #        # Needed to prevent weird first-write bug where not all data written
-    #        with open(pfname, "w") as f: # overwrite the file
-    #            json.dump(pdata, f, indent=4)
-    #    
-    #    with open(pfname, "r+") as f:
-    #        hashstr = structure.gen_hashstring(en_fail_motor=False)
-    #        try:
-    #            pdata = json.load(f)
-    #            if type(pdata) == type(""):
-    #                pdata = json.loads(pdata)
-    #            if hashstr not in pdata:
-    #                pdata[hashstr] = {}
-    #            modstr = "{}".format(fmod)
-    #            if modstr not in pdata[hashstr]:
-    #                pdata[hashstr][modstr] = {}
-    #            rotstr = "{}".format(frot)
-    #
-    #            if rotstr not in pdata[hashstr][modstr]:
-    #                pdata[hashstr][modstr][rotstr] = []    
-    #
-    #            pdata[hashstr][modstr][rotstr] = res
-    #
-    #        except: # File is empty
-    #            fault_entry = {hashstr: {fmod: {frot: res}}}
-    #            pdata = json.dumps(fault_entry)
-    #            pdata = json.dumps(fault_entry)
-    #            print("New json file being written")
-    #
-    #    with open(pfname, "w") as f: # overwrite the file
-    #        json.dump(pdata, f, indent=4)
-
 
     if do_not_plot:
         return
@@ -601,7 +584,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
              'm', label=r"$\dot{\theta}$ Residual", linewidth=lw)
     plt.legend(loc='lower left')
 
-    #plt.show()
+    plt.show()
 
     plt.clf() # Clear figures
     try:
@@ -632,7 +615,7 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
     simulate(struc1, trajectory_function, mset, figind=1, speed=speed)
 
 if __name__ == '__main__':
-    global faulty_rots, fmod, frot, noise_std_dev, rfname, prof_prefix
+    global faulty_rots, fmod, frot, noise_std_dev, rfname, prof_prefix, shape_str
     # Hard-coding module 1, rotor 1 to be faulty
     faulty_rots = []
     fmod = int(sys.argv[1])
@@ -647,23 +630,30 @@ if __name__ == '__main__':
     shape_idx = int(sys.argv[4])
     if shape_idx == 0:
         structure = structure_gen.rect(3, 3)
+        shape_str = '3x3rect'
     elif shape_idx == 1:
         structure = structure_gen.rect(3, 4)
+        shape_str = '3x4rect'
     elif shape_idx == 2:
         structure = structure_gen.rect(4, 4)
+        shape_str = '4x4rect'
     elif shape_idx == 3:
         structure = structure_gen.zero(3, 3)
+        shape_str = '3x3donut'
     elif shape_idx == 4:
         structure = structure_gen.zero(4, 4)
+        shape_str = '4x4donut'
     elif shape_idx == 5:
         structure = structure_gen.plus(3, 3)
+        shape_str = '3x3plus'
     elif shape_idx == 6:
         structure = structure_gen.plus(5, 5)
+        shape_str = '5x5plus'
     else:
         raise Exception("Unsupported structure shape index")
 
     min_ramp_idx = int(sys.argv[5])
-    min_ramp_arr = [0, 0.25, 0.5, 0.75]
+    min_ramp_arr = [0, 0.25, 0.5, 0.75, 0.3, 0.4]
     min_ramp     = min_ramp_arr[min_ramp_idx]
     rospy.set_param('min_ramp', min_ramp)
 

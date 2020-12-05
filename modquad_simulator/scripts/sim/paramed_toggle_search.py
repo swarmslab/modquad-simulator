@@ -267,7 +267,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             if t >= next_diag_t: # Update rotor set
             #{
                 # We found the faulty rotor
-                if (np.sum(np.abs(residual[-3])+np.abs(residual[-2])) < 0.005) \
+                if (np.sum(np.abs(residual[-3])+np.abs(residual[-2])) < 0.002) \
                     and len(ramp_rotor_set[0]) > 0:
                 #if found_right_suspect_set(residual_log) and \
                 #    len(ramp_rotor_set[0]) > 0:
@@ -340,7 +340,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             #else: # Update ramping factors
             ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
             
-            print("Ramp Factors = {}".format(ramp_factors))
+            #print("Ramp Factors = {}".format(ramp_factors))
         #}
  
 
@@ -617,5 +617,5 @@ if __name__ == '__main__':
     random.seed(1)
     waypts = waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5])
     #waypts = waypt_gen.hover_line(rise=0.5)
-    results = test_shape_with_waypts( structure, waypts, speed=0.15 )
+    results = test_shape_with_waypts( structure, waypts, speed=0.10 )
     print("---------------------------------------------------------------")

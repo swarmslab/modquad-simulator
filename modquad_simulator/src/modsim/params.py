@@ -69,7 +69,7 @@ class RunType:
     FLOWDECK = 2
 
 
-def init_params(speed, is_sim, fdd_group="log4", fdd_interval=5.0, rmap_mode=1):
+def init_params(speed, is_sim, fdd_group, fdd_interval, rmap_mode):
     """
     Initializes rosparams used in the simulation
     """

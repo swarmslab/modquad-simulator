@@ -98,10 +98,11 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     global faulty_rots, fmod, frot, noise_std_dev, rfname, pfname
 
     do_not_plot = True
-    profile_time = 3.0 # sec
+    profile_time = 5.0 # sec
 
     rospy.init_node('modrotor_simulator', anonymous=True)
-    params.init_params(speed, is_sim=True, fdd_group="indiv")
+    params.init_params(speed, is_sim=True, 
+                        fdd_interval=5.0, fdd_group="indiv", rmap_mode=3)
 
     state_log = []
     forces_log = []
@@ -241,10 +242,10 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         residual = est_state_vector - structure.state_vector
 
         # Store data
+        residual_log.append(residual)
         desx.append(desired_state[0][0])
         desy.append(desired_state[0][1])
         desz.append(desired_state[0][2])
-        residual_log.append(residual)
         single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
         struct_log.append([F_structure, 
                            M_structure[0], M_structure[1], M_structure[2]])
@@ -264,7 +265,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                                         fmod, frot)
             faults_injected = True
             inject_time = t
-            #print("Residual = {}".format(residual))
+            rospy.loginfo("Profiling for {} sec".format(profile_time))
 
         # Use a 3-second window of time to generate profile
         if inject_time > 0 and t - inject_time > profile_time:
