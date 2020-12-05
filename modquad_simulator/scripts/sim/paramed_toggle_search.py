@@ -97,7 +97,7 @@ def recompute_velocities(new_state, old_state, dt):
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     global faulty_rots, fmod, frot, noise_std_dev, rfname, figfile, shape_str
 
-    show_plots = False
+    show_plots = True
 
     flevel = 1.0 - rospy.get_param('min_ramp')
 
@@ -263,7 +263,9 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         # If we are in the diagnose_mode, then we need to iteratively turn off
         # the rotors in the quadrant and see what state error goes to
         if diagnose_mode:
+        #{
             if t >= next_diag_t: # Update rotor set
+            #{
                 # We found the faulty rotor
                 if (np.sum(np.abs(residual[-3])+np.abs(residual[-2])) < 0.005) \
                     and len(ramp_rotor_set[0]) > 0:
@@ -309,7 +311,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                     print("New Groups: {}".format(groups))
                     ramp_rotor_set = [[], ramp_rotor_set[0]]
                 #}
-                else:
+                else: # Update ramping factors, NOT ramp rotor sets
                     ramp_rotor_set, quadrant_idx = \
                                     update_ramp_rotors(
                                             structure,
@@ -334,9 +336,12 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                 print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
                 print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
                 print("------------------------------------------------")
-            else: # Update ramping factors
-                ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
-
+            #}
+            #else: # Update ramping factors
+            ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
+            
+            print("Ramp Factors = {}".format(ramp_factors))
+        #}
  
 
         # Store data
