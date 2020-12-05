@@ -180,7 +180,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
-    while not rospy.is_shutdown() and t < 60: #overtime*tmax + 1.0 / freq:
+    while not rospy.is_shutdown() and t < 160: #overtime*tmax + 1.0 / freq:
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -540,7 +540,8 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     return integral_val, pos_err_log
 
 def test_shape_with_waypts(mset, wayptset, speed=1):
-    params.init_params(speed, is_sim=True, fdd_group="indiv", rmap_mode=3)
+    params.init_params(speed, is_sim=True, 
+                        fdd_group="indiv", fdd_interval=5.0, rmap_mode=3)
 
     # Initialize the min snap trajectory
     trajectory_function = min_snap_trajectory
