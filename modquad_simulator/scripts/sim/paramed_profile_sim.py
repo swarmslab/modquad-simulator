@@ -547,7 +547,7 @@ if __name__ == '__main__':
         raise Exception("Unsupported structure shape index")
 
     min_ramp_idx = int(sys.argv[5])
-    min_ramp_arr = [0, 0.25, 0.5, 0.75, 0.3, 0.4, 0.375]
+    min_ramp_arr = [0, 0.25, 0.5, 0.625, 0.3, 0.4, 0.375]
     min_ramp     = min_ramp_arr[min_ramp_idx]
     rospy.set_param('min_ramp', min_ramp)
 

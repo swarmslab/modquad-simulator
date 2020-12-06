@@ -320,7 +320,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             if (len(ramp_rotor_set[0]) == 1): # Single rotor
                 with open(rfname, "a+") as f:
                     print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-                    f.write("2 {}, F{}, N{}, [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} | [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Suspects: {}\n".format(
+                    f.write("2 {}, F{} (newprof), N{}, [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} | [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Suspects: {}\n".format(
                             shape_str, flevel, noise_std_dev, t - inject_time, fmod, frot,
                             ramp_rotor_set[0], sus_del_time, suspects), 
                     )
@@ -363,7 +363,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
                 if len(suspects) == 1:
                     with open(rfname, "a+") as f:
-                        f.write("1 {}, F{}, N{}: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), Suspects: {}\n".format(
+                        f.write("1 {}, F{} (newprof), N{}: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), Suspects: {}\n".format(
                                     shape_str, flevel, noise_std_dev, sus_del_time, fmod, frot, suspects)
                         )
                     return
@@ -653,9 +653,13 @@ if __name__ == '__main__':
         raise Exception("Unsupported structure shape index")
 
     min_ramp_idx = int(sys.argv[5])
-    min_ramp_arr = [0, 0.25, 0.5, 0.75, 0.3, 0.4]
-    min_ramp     = min_ramp_arr[min_ramp_idx]
+    #               0   1    2    3     4    5      6   7
+    min_ramp_arr = [0, 0.25, 0.5, 0.55, 0.3, 0.4, 0.35, 0.45]
+    min_ramp     = round(min_ramp_arr[min_ramp_idx], 2)
     rospy.set_param('min_ramp', min_ramp)
+
+    print("Fault injection involves {}% reduction".format(
+                    100*round(1.0 - min_ramp, 2)))
 
     rfname = "/home/arch/catkin_ws/src/modquad-simulator/" + \
              "modquad_simulator/prof_results/"       + \
