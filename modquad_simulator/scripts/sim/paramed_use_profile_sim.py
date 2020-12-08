@@ -191,7 +191,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
-    while not rospy.is_shutdown() and t < 80: #overtime*tmax + 1.0 / freq:
+    while not rospy.is_shutdown() and t < 160: #overtime*tmax + 1.0 / freq:
 
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
@@ -320,7 +320,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             if (len(ramp_rotor_set[0]) == 1): # Single rotor
                 with open(rfname, "a+") as f:
                     print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-                    f.write("2 {}, F{} (newprof), N{}, [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} | [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Suspects: {}\n".format(
+                    f.write("2 {}, F{} (wo_prof), N{}, [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), ID'd: {} | [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Suspects: {}\n".format(
                             shape_str, flevel, noise_std_dev, t - inject_time, fmod, frot,
                             ramp_rotor_set[0], sus_del_time, suspects), 
                     )
@@ -363,7 +363,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
                 if len(suspects) == 1:
                     with open(rfname, "a+") as f:
-                        f.write("1 {}, F{} (newprof), N{}: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), Suspects: {}\n".format(
+                        f.write("1 {}, F{} (wo_prof), N{}: [\N{GREEK CAPITAL LETTER DELTA}t = {:5.2f}] Inject ({}, {}), Suspects: {}\n".format(
                                     shape_str, flevel, noise_std_dev, sus_del_time, fmod, frot, suspects)
                         )
                     return
