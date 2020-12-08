@@ -241,115 +241,15 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
         # Compute residual
         residual = est_state_vector - structure.state_vector
-        residual_log.append(residual)
-
-        #residual = np.array(desired_state[0]) - structure.state_vector[:3]
-
-                    # - est_state_vector
-
-        #if inject_time > 0 and t - inject_time > 1.5:
-        #    import pdb; pdb.set_trace()
-
-        # Check for faults
-        if fault_exists(residual_log) and not diagnose_mode:
-            rospy.loginfo("Fault detected, enter diagnosis mode")
-            diagnose_mode = True
-            quadrant = get_faulty_quadrant_rotors(residual_log, structure)
-            rotmat = rotpos_to_mat(structure, quadrant)
-            groups = form_groups(quadrant, rotmat)
-            rospy.loginfo("Groups = {}".format(groups))
-            next_diag_t = 0
-
-        # If we are in the diagnose_mode, then we need to iteratively turn off
-        # the rotors in the quadrant and see what state error goes to
-        if diagnose_mode:
-        #{
-            if t >= next_diag_t: # Update rotor set
-            #{
-                # We found the faulty rotor
-                if (np.sum(np.abs(residual[-3])+np.abs(residual[-2])) < 0.002) \
-                    and len(ramp_rotor_set[0]) > 0:
-                #if found_right_suspect_set(residual_log) and \
-                #    len(ramp_rotor_set[0]) > 0:
-                #{
-                    rospy.loginfo("State Est = {}".format(est_state_vector[-3:]))
-                    rospy.loginfo("Residual = {}".format(residual))
-
-                    # Recurse over set if not already single rotor
-                    if (len(ramp_rotor_set[0]) == 1): # Single rotor
-                        print("\t\t[DELTA t = {:.03f}] Injected ({}, {}), ID'd {}".format(
-                                t-inject_time, fmod, frot, ramp_rotor_set[0][0]),
-                                file=sys.stderr)
-                        with open(rfname, "a+") as f:
-                            f.write("{}, F{}, N{}: [DELTA t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
-                                    shape_str, flevel, noise_std_dev, t - inject_time, fmod, frot, ramp_rotor_set[0])
-                            )
-                        print("The faulty rotor is {}".format(ramp_rotor_set[0]))
-                        # Store data
-                        desx.append(desired_state[0][0])
-                        desy.append(desired_state[0][1])
-                        desz.append(desired_state[0][2])
-                        single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
-                        struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
-                        pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
-                        tlog.append(t)
-                        state_log.append(np.copy(structure.state_vector))
-                        desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
-                        M_log.append(M_structure)
-                        forces_log.append(rotor_forces)
-                        break
-                        sys.exit(0)
-
-                    print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
-                    assert len(ramp_rotor_set[0]) > 1
-
-                    rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
-
-                    # Form smaller subgroups
-                    groups = form_groups(ramp_rotor_set[0], rotmat)
-                    quadrant_idx = 0 # Reset
-                    print("New Groups: {}".format(groups))
-                    ramp_rotor_set = [[], ramp_rotor_set[0]]
-                #}
-                else: # Update ramping factors, NOT ramp rotor sets
-                    ramp_rotor_set, quadrant_idx = \
-                                    update_ramp_rotors(
-                                            structure,
-                                            t, next_diag_t,
-                                            groups, quadrant_idx,
-                                            rotmat,
-                                            ramp_rotor_set)
-                    if quadrant_idx == -1:
-                        desx.append(desired_state[0][0])
-                        desy.append(desired_state[0][1])
-                        desz.append(desired_state[0][2])
-                        single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
-                        struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
-                        pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
-                        tlog.append(t)
-                        state_log.append(np.copy(structure.state_vector))
-                        desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
-                        M_log.append(M_structure)
-                        forces_log.append(rotor_forces)
-                        break
-                next_diag_t = t + fdd_interval
-                print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
-                print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
-                print("------------------------------------------------")
-            #}
-            #else: # Update ramping factors
-            ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
-            
-            #print("Ramp Factors = {}".format(ramp_factors))
-        #}
- 
 
         # Store data
         desx.append(desired_state[0][0])
         desy.append(desired_state[0][1])
         desz.append(desired_state[0][2])
+        residual_log.append(residual)
         single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
-        struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
+        struct_log.append([F_structure, 
+                           M_structure[0], M_structure[1], M_structure[2]])
         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
         tlog.append(t)
         state_log.append(np.copy(structure.state_vector))
@@ -358,8 +258,13 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         forces_log.append(rotor_forces)
         ind += 1.0
 
+
+        # Sleep so that we can maintain a 100 Hz update rate
+        rate.sleep()
+        t += 1. / freq
+
         # Check if we need to inject faults
-        if ( t >= 8.0 and not faults_injected ):
+        if ( t >= 7.0 and not faults_injected ):
             max_faults = 1
             faulty_rots = inject_faults(structure, max_faults, 
                                         sched_mset, faulty_rots,
@@ -368,9 +273,89 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
             inject_time = t
             #print("Residual = {}".format(residual))
 
-        # Sleep so that we can maintain a 100 Hz update rate
-        rate.sleep()
-        t += 1. / freq
+        # Check for faults
+        if fault_exists(residual_log) and not diagnose_mode:
+            rospy.loginfo("Fault detected, enter diagnosis mode")
+            diagnose_mode = True
+            quadrant = get_faulty_quadrant_rotors(residual_log, structure)
+            rotmat = rotpos_to_mat(structure, quadrant)
+            print(rotmat)
+            groups = form_groups(quadrant, rotmat)
+            rospy.loginfo("Groups = {}".format(groups))
+
+            # Immediately start toggle searching
+            next_diag_t = 0
+
+        # If we are in the diagnose_mode, then we need to iteratively turn off
+        # the rotors in the quadrant and see what state error goes to
+        if not diagnose_mode:
+            continue
+
+        if t < next_diag_t: # Update rotor set
+            if len(ramp_rotor_set[0]) > 0:
+                ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
+            continue
+        
+        # We found the faulty rotor
+        if (np.sum(np.abs(residual[-3])+np.abs(residual[-2])) < 0.002) \
+            and len(ramp_rotor_set[0]) > 0:
+        #{
+            rospy.loginfo("State Est = {}".format(est_state_vector[-3:]))
+            rospy.loginfo("Residual = {}".format(residual))
+
+            # Recurse over set if not already single rotor
+            if (len(ramp_rotor_set[0]) == 1): # Single rotor
+                print("\t\t[DELTA t = {:.03f}] Injected ({}, {}), ID'd {}".format(
+                        t-inject_time, fmod, frot, ramp_rotor_set[0][0]),
+                        file=sys.stderr)
+                with open(rfname, "a+") as f:
+                    f.write("{}, F{}, N{}: [DELTA t = {:5.2f}] Inject ({}, {}), ID'd: {} \n".format(
+                            shape_str, flevel, noise_std_dev, t - inject_time, fmod, frot, ramp_rotor_set[0])
+                    )
+                print("The faulty rotor is {}".format(ramp_rotor_set[0]))
+                break
+                sys.exit(0)
+
+            print("The faulty rotor is in set {}".format(ramp_rotor_set[0]))
+            assert len(ramp_rotor_set[0]) > 1
+
+            rotmat = update_rotmat(ramp_rotor_set[0], rotmat)
+
+            # Form smaller subgroups
+            groups = form_groups(ramp_rotor_set[0], rotmat)
+            quadrant_idx = 0 # Reset
+            print("New Groups: {}".format(groups))
+            ramp_rotor_set = [[], ramp_rotor_set[0]]
+        #}
+        else: # Update ramping factors, NOT ramp rotor sets
+        #{
+            ramp_rotor_set, quadrant_idx = \
+                            update_ramp_rotors(
+                                    structure,
+                                    t, next_diag_t,
+                                    groups, quadrant_idx,
+                                    rotmat,
+                                    ramp_rotor_set)
+            if quadrant_idx == -1:
+                desx.append(desired_state[0][0])
+                desy.append(desired_state[0][1])
+                desz.append(desired_state[0][2])
+                single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
+                struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
+                pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
+                tlog.append(t)
+                state_log.append(np.copy(structure.state_vector))
+                desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
+                M_log.append(M_structure)
+                forces_log.append(rotor_forces)
+                break
+        #}
+        next_diag_t = t + fdd_interval
+        print("New Ramp Rotor Set = {}".format(ramp_rotor_set))
+        print("t = {:03f}, next_check = {:03f}".format(t, next_diag_t))
+        print("------------------------------------------------")
+
+        ramp_factors = update_ramp_factors(t, next_diag_t, ramp_factors)
 
     sim_land(structure, freq, odom_publishers, tf_broadcaster)
 
@@ -558,6 +543,8 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
     pi = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
 
+    import pdb; pdb.set_trace()
+    assert 0
     rospy.init_node('modrotor_simulator', anonymous=True)
 
     # Run the simulation

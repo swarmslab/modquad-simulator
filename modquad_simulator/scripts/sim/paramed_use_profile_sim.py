@@ -400,16 +400,12 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
                         desx.append(desired_state[0][0])
                         desy.append(desired_state[0][1])
                         desz.append(desired_state[0][2])
-                        single_log.append([F_single, M_single[0], M_single[1],
-M_single[2]])
-                        struct_log.append([F_structure, M_structure[0],
-M_structure[1], M_structure[2]])
-                        pos_err_log += np.power(desired_state[0] -
-structure.state_vector[:3], 2)
+                        single_log.append([F_single, M_single[0], M_single[1], M_single[2]])
+                        struct_log.append([F_structure, M_structure[0], M_structure[1], M_structure[2]])
+                        pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
                         tlog.append(t)
                         state_log.append(np.copy(structure.state_vector))
-                        desired_cmd_log.append([thrust_newtons, roll, pitch,
-yawrate])
+                        desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
                         M_log.append(M_structure)
                         forces_log.append(rotor_forces)
                         break
