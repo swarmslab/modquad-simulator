@@ -543,8 +543,6 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
     pi = convert_struc_to_mat(struc1.ids, struc1.xx, struc1.yy)
     print("Structure Used: \n{}".format(pi.astype(np.int64)))
 
-    import pdb; pdb.set_trace()
-    assert 0
     rospy.init_node('modrotor_simulator', anonymous=True)
 
     # Run the simulation
@@ -586,6 +584,9 @@ if __name__ == '__main__':
     elif shape_idx == 6:
         structure = structure_gen.plus(5, 5)
         shape_str = "5x5p"
+    elif shape_idx == 7:
+        structure = structure_gen.side_ushape(4, 4)
+        shape_str = "4x4u"
     else:
         raise Exception("Unsupported structure shape index")
 
