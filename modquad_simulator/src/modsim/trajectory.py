@@ -104,6 +104,7 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
     :param: t_max is the time we want to complete the trajectory in
     """
     # Find distances between waypts
+    #waypts = np.unique(waypts, axis=0) # Remove duplicates that prevent interpolation
     dists = np.sqrt(np.sum(((np.roll(waypts, 1, axis=0) - waypts)[1:, :]) ** 2, axis=1))
     totaldist = np.sum(dists)
     t_max = (totaldist / speed) # Projected time this traj will take to run
@@ -112,72 +113,23 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
         cumdist = np.insert(cumdist, 0, 0) 
 
     # Target times for each waypt
-    #print('vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv')
-    #print('waypts = \n{}'.format(waypts))
-    #print("dists = {}".format(dists))
-    #print("totaldist = {}".format(totaldist))
-    #print("projected time = {}".format(t_max))
-    #print("cumdist = {}".format(cumdist))
-    #for i in range(len(dists)):
-    #    print("\tnt = {}".format(dists[i] / totaldist * t_max))
     times = np.array([0] + [dists[i] / totaldist * t_max for i in range(len(dists))])
-    time_inflate = np.ones((times.shape[0]))
-    #if len(times) > 2:
-    #    time_inflate[-3:] *= np.array([1.1, 1.25, 1.3])
-    #    times *= time_inflate
-
     times = np.cumsum(times) + t # Account for time elapsed since sim began
-    #sys.exit(0)
-    #plt.plot(waypts[:, 0], waypts[:, 1])
 
     # Spline the path
     tstep = 1.00
-    #print(times)
-    #print(waypts[:,0])
     newtimes = np.arange(0,t_max+tstep,tstep) + t
 
-    #print("tmax = {}".format(t_max))
-    #print("dist = {}".format(totaldist))
-    #print("speed = {}".format(speed))
-    #print(newtimes)
-    #print(np.transpose(waypts))
-
-    #if use_splines or True:
     xq = interp.pchip_interpolate(times, waypts[:,0], newtimes)
     yq = interp.pchip_interpolate(times, waypts[:,1], newtimes)
     zq = interp.pchip_interpolate(times, waypts[:,2], newtimes)
-    #xq = interp.barycentric_interpolate(times, waypts[:,0], newtimes)
-    #yq = interp.barycentric_interpolate(times, waypts[:,1], newtimes)
-    #zq = interp.barycentric_interpolate(times, waypts[:,2], newtimes)
-    #else:
-    #    print(times)
-    #    print(waypts)
-    #    print(newtimes)
-    #    fxq = interp.interp1d(times, waypts[:,0])
-    #    fyq = interp.interp1d(times, waypts[:,1])
-    #    fzq = interp.interp1d(times, waypts[:,2])
-    #    xq = fxq(newtimes)
-    #    yq = fyq(newtimes)
-    #    zq = fzq(newtimes)
 
     start = waypts[0, :]
     end = waypts[-1, :]
-    #print(times)
-    #print(waypts)
     waypts = np.transpose(np.vstack((xq, yq, zq)))
     waypts[0, :] = start
     waypts[-1, :] = end
     times = np.arange(0,t_max+tstep,tstep) + t
-    #print(waypts)
-    #print(newtimes)
-    #print(xq)
-    #print(yq)
-    #print(zq)
-    #print('--')
-    #print(np.transpose(waypts))
-    #plt.figure()
-    #plt.scatter(waypts[:, 0], waypts[:, 1])
-    #plt.show()
 
     num_eq = len(waypts) - 1
     num_unknown = num_eq * 8
@@ -237,7 +189,6 @@ def _min_snap_init(waypts, speed=0.5, t=0.0, use_splines=True):
     cx = np.linalg.solve(M, x)
     cy = np.linalg.solve(M, y)
     cz = np.linalg.solve(M, z)
-    #print("Projected time at end of planning: {}".format(times[-1]-times[0]))
     return traj_data(times, dists, totaldist, waypts, cx, cy, cz)
 
 def min_snap_trajectory(t, speed=1, traj_vars=None, waypts=None, 

@@ -1,4 +1,5 @@
 import rospy
+import math
 
 import numpy as np
 import itertools
@@ -290,3 +291,56 @@ class Structure:
                                 msg.thrust_cap, msg.rotor_id ) )
             except rospy.ServiceException as e:
                 rospy.logerr("Service call failed: {}".format(e))
+
+    def get_rotor_positions(self):
+        ## From moments to rotor forces (power distribution)
+        # positions of the rotors
+        #         ^ X
+        #    (4)  |      (1) [L, -L]
+        #   Y<-----
+        #    (3)         (2)
+    
+        # Will change later, but the mqscheduler package was written as:
+        #    (3)    |    (2) [L, -L]
+        #     ------------
+        #    (4)    |    (1)
+        # So this needs to do a transferance
+    
+        # 1 is the first mapping, 2 is the second
+        rotor_map_mode = rospy.get_param("rotor_map", 1) 
+    
+        rx, ry = [], []
+        L = params.arm_length * math.sqrt(2) / 2.
+    
+        for x, y in zip(self.xx, self.yy):
+            if rotor_map_mode == 1:
+                # THIS USES THE INDIVIDUAL CRAZYFLIE BODY AXIS
+                # SUBTRACTION IS INDIV BODY FRAME
+                rx.append(x + L) # R1 x                     ^+X
+                ry.append(y - L) # R1 y                     |
+    
+                rx.append(x - L) # R2 x          Rotor 4    |   Rotor 1
+                ry.append(y - L) # R2 y                     |
+                                 #        +Y<-------------------------------->
+                rx.append(x - L) # R3 x                     |
+                ry.append(y + L) # R3 y          Rotor 3    |   Rotor 2
+    
+                rx.append(x + L) # R4 x                     |
+                ry.append(y + L) # R4 y                     v
+            elif rotor_map_mode == 3:
+                # THIS USES INDIVIDUAL CRAZYFLIE MOTOR NUMBERING AS IT IS
+                # ON THE HARDWARE (WHICH IS DIFFERENT THAN BODY AXIS)
+                # SUBTRACTION IS IN STRUCTURE FRAME
+                rx.append(x - L) # R1 x                   ^+Y
+                ry.append(y - L) # R1 y                   |
+                                                                             
+                rx.append(x + L) # R2 x        Rotor 4    |   Rotor 3
+                ry.append(y - L) # R2 y                   |
+                                 #        <-------------------------------->+X
+                rx.append(x + L) # R3 x                   |
+                ry.append(y + L) # R3 y        Rotor 1    |   Rotor 2
+                                                                             
+                rx.append(x - L) # R4 x                   |
+                ry.append(y + L) # R4 y                   v
+
+        return rx, ry

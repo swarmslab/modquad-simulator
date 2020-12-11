@@ -1,0 +1,227 @@
+                                      (renv) ➜  catkin_ws rosrun
+modquad_simulator fdd_profile_sim.py >> log_new_fdd_with_profiles
+5-MODULE PLUS
+        Failure type = 1
+                Noise type = 0.000
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 0.250
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 0.500
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 0.750
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 1.000
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+        Failure type = 2
+                Noise type = 0.000
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 0.250
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 0.500
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 0.750
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+                        M3 R3
+                        M4 R0
+                        M4 R1
+                        M4 R2
+                        M4 R3
+                        M5 R0
+                        M5 R1
+                        M5 R2
+                        M5 R3
+                Noise type = 1.000
+                        M1 R0
+                        M1 R1
+                        M1 R2
+                        M1 R3
+                        M2 R0
+                        M2 R1
+                        M2 R2
+                        M2 R3
+                        M3 R0
+                        M3 R1
+                        M3 R2
+Traceback (most recent call last):
+  File
+"/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/scripts/sim/fdd_profile_sim.py",
+line 581, in <module>
+    test_shape_with_waypts( structure_gen.plus(3, 3), points, speed=spd,
+fail_type=f, noise=noise_stdev, fname=profile_fname, rfname=results_fname)
+  File
+"/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/scripts/sim/fdd_profile_sim.py",
+line 546, in test_shape_with_waypts
+    simulate(struc1, trajectory_function, mset, speed=speed,
+fail_type=fail_type, noise=noise, fname=fname, rfname=rfname)
+  File
+"/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/scripts/sim/fdd_profile_sim.py",
+line 347, in simulate
+    profile_fname)
+  File
+"/home/arch/catkin_ws/src/modquad-simulator/modquad_simulator/src/modsim/util/fault_detection.py",
+line 440, in find_suspects_by_profile
+    residual_min = [round(np.min(log[:, 0]), 2), round(np.min(log[:, 1]), 2)]
+IndexError: too many indices for array
+

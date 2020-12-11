@@ -42,7 +42,7 @@ def helix(radius, rise, num_circ, start_pt=[0.0,0.0,0.0]):
     #loc = [start_pt[0], start_pt[1], start_pt[2]]
     loc = [0.0, 0.0, 0.0]
     waypts = [copy.copy(loc)]
-    if not np.all(start_pt == 0):
+    if not np.all(start_pt) == 0:
         waypts.append(start_pt)
     theta = 0.0
     for i in range(int(num_circ)):
@@ -60,8 +60,8 @@ def helix(radius, rise, num_circ, start_pt=[0.0,0.0,0.0]):
     waypts.append([next_pt[0], next_pt[1], 0.4]) # For safe descent
     waypts.append([next_pt[0], next_pt[1], 0.2]) # For safe descent
     waypts += np.array([start_pt[0], start_pt[1], start_pt[2]])
-    print(" WAYPOINTS ")
-    print(np.array(waypts))
+    #print(" WAYPOINTS ")
+    #print(np.array(waypts))
     return np.array(waypts)
 
 def hover_line(rise, start_pt=[0,0,0]):
