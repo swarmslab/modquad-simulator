@@ -543,6 +543,8 @@ if __name__ == '__main__':
         structure = structure_gen.plus(3, 3)
     elif shape_idx == 6:
         structure = structure_gen.plus(5, 5)
+    elif shape_idx == 7:
+        structure = structure_gen.side_ushape(4, 4)
     else:
         raise Exception("Unsupported structure shape index")
 
